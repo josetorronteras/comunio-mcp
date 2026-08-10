@@ -683,3 +683,48 @@ def test_an_acceptance_is_not_retried_after_a_401():
         _run(handler, lambda s, c: accept_offer(s, c, 9000003))
 
     assert len(handler.writes) == 1
+
+
+def _outgoing(offer_id, price):
+    """One of the manager's own open bids."""
+    payload = _offers_payload(offerer_id=int(USER_ID), offer_id=offer_id)
+    payload["items"][0]["price"] = price
+    return payload["items"][0]
+
+
+def test_other_open_bids_count_against_the_credit():
+    # Comunio's `credit` does not subtract pending bids — measured directly. Without
+    # accounting for them, five bids of ten million each would all pass a check against
+    # thirty million.
+    handler = _bidding_api(
+        offers={"credit": 1_000_000, "items": [_outgoing(9000101, 900_000)]}
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        _run(handler, lambda s, c: place_bid(s, c, 3871, 200_000))
+
+    assert "already promised to other open bids" in str(excinfo.value)
+    assert handler.writes == []
+
+
+def test_credit_after_subtracts_the_other_bids_too():
+    handler = _bidding_api(
+        offers={"credit": 29_475_000, "items": [_outgoing(9000101, 1_000_000)]}
+    )
+
+    result = _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
+
+    assert result.credit_committed == 1_000_000
+    assert result.credit_after == 29_475_000 - 1_000_000 - 810_000
+
+
+def test_changing_a_bid_does_not_count_it_against_itself():
+    # The old amount is replaced, not added to.
+    offers = {"credit": 1_000_000, "items": [_outgoing(9000003, 900_000)]}
+    handler = _changing_api(offers=offers)
+
+    result = _run(handler, lambda s, c: change_bid(s, c, 9000003, 950_000))
+
+    assert result.ok is True
+    assert result.credit_committed == 0
+    assert result.credit_after == 1_000_000 - 950_000

@@ -18,6 +18,7 @@ from comunio_mcp.comunio.models import (
     AskingPriceResult,
     BidResult,
     ListingResult,
+    Offers,
     UnlistResult,
     WithdrawResult,
 )
@@ -167,10 +168,8 @@ async def place_bid(
         )
 
     offers = await fetch_offers(session, client)
-    if price > offers.credit:
-        raise ValueError(
-            f"A bid of {price:,} exceeds the available credit of {offers.credit:,}"
-        )
+    committed = _committed(offers)
+    _check_affordable(price, credit=offers.credit, committed=committed)
 
     url = await session.link(OFFERS_LINK)
     payload = await client.post(
@@ -185,11 +184,41 @@ async def place_bid(
         price=price,
         player=listing.name,
         credit=offers.credit,
+        committed=committed,
     )
 
 
+def _committed(offers: Offers, *, excluding: int | None = None) -> int:
+    """What the manager's other open bids already promise to spend.
+
+    Comunio's `credit` does **not** subtract these: placing a bid and reading credit again
+    returns the same number. Measured directly — a bid of 170,001 left credit unchanged at
+    29,749,200. Without this, five bids of ten million each would every one pass a check
+    against thirty million of credit.
+    """
+    return sum(
+        offer.price
+        for offer in offers.offers
+        if offer.direction == OUTGOING and offer.offer_id != excluding
+    )
+
+
+def _check_affordable(price: int, *, credit: int, committed: int) -> None:
+    if price + committed > credit:
+        detail = f" plus {committed:,} already promised to other open bids" if committed else ""
+        raise ValueError(
+            f"A bid of {price:,}{detail} exceeds the available credit of {credit:,}"
+        )
+
+
 def parse_bid_result(
-    payload: Any, *, player_id: int, price: int, player: str | None, credit: int | None
+    payload: Any,
+    *,
+    player_id: int,
+    price: int,
+    player: str | None,
+    credit: int | None,
+    committed: int = 0,
 ) -> BidResult:
     # The outer `status` only says the request was processed. Whether *this* bid was
     # accepted is the per-item status, and an outer OK with a rejected item inside is
@@ -206,7 +235,8 @@ def parse_bid_result(
         player=player,
         price=price,
         applied_immediately=bool(item.get("processImmediately")),
-        credit_after=(credit - price) if ok and credit is not None else credit,
+        credit_committed=committed,
+        credit_after=(credit - committed - price) if ok else (credit - committed),
     )
 
 
@@ -236,10 +266,9 @@ async def change_bid(
             f"Offer {offer_id} is an offer for the manager's own player, not one of their "
             "bids. Only the manager's own bids can be changed."
         )
-    if price > offers.credit:
-        raise ValueError(
-            f"A bid of {price:,} exceeds the available credit of {offers.credit:,}"
-        )
+    # The bid being edited is replaced, so it must not be counted against itself.
+    committed = _committed(offers, excluding=offer_id)
+    _check_affordable(price, credit=offers.credit, committed=committed)
 
     url = await session.link(OFFERS_LINK)
     payload = await client.post(
@@ -262,6 +291,7 @@ async def change_bid(
         price=price,
         player=match.player.name,
         credit=offers.credit,
+        committed=committed,
     )
 
 
