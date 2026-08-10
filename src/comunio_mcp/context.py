@@ -10,6 +10,7 @@ from mcp.server import MCPServer
 
 from comunio_mcp.comunio.auth import ComunioAuth
 from comunio_mcp.comunio.client import ComunioClient, default_headers
+from comunio_mcp.comunio.session import Session
 from comunio_mcp.config import ConfigError, Settings
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class AppContext:
     #: None when credentials are not configured. The server still starts, so a client
     #: sees a working server and a clear error instead of a process that dies at boot.
     comunio: ComunioClient | None
+    session: Session | None = None
 
 
 @asynccontextmanager
@@ -37,14 +39,25 @@ async def lifespan(_server: MCPServer) -> AsyncIterator[AppContext]:
         headers=default_headers(settings), timeout=REQUEST_TIMEOUT_SECONDS
     ) as http:
         auth = ComunioAuth(http, settings)
-        yield AppContext(comunio=ComunioClient(http, auth))
+        client = ComunioClient(http, auth)
+        yield AppContext(comunio=client, session=Session(client))
+
+
+_MISSING_CREDENTIALS = (
+    "This tool needs Comunio credentials. Set COMUNIO_USERNAME and COMUNIO_PASSWORD "
+    "in the server environment; see docs/setup.md."
+)
 
 
 def require_comunio(app: AppContext) -> ComunioClient:
     """Return the Comunio client, or fail with a message that says how to fix it."""
     if app.comunio is None:
-        raise RuntimeError(
-            "This tool needs Comunio credentials. Set COMUNIO_USERNAME and "
-            "COMUNIO_PASSWORD in the server environment; see docs/setup.md."
-        )
+        raise RuntimeError(_MISSING_CREDENTIALS)
     return app.comunio
+
+
+def require_session(app: AppContext) -> Session:
+    """Return the Comunio session, or fail with a message that says how to fix it."""
+    if app.session is None:
+        raise RuntimeError(_MISSING_CREDENTIALS)
+    return app.session

@@ -76,6 +76,15 @@ Details and sources in [mcp-protocol.md](mcp-protocol.md); the practical points:
 
 - The API is `MCPServer` from `mcp.server`. **`mcp.server.fastmcp` does not exist in
   2.0.0** — it was removed, not renamed. Examples written against 1.x will not run.
+- **There are two different `Context` classes and only one works in a tool.** Use
+  `from mcp.server.mcpserver import Context`. Annotating a tool parameter with
+  `mcp.server.context.Context` — the middleware one — fails at import with
+  `PydanticInvalidForJsonSchema`, because the SDK does not recognise it and tries to put
+  it in the tool's input schema.
+- The lifespan object reaches a tool as `ctx.request_context.lifespan_context`.
+- Pydantic aliases: use `validation_alias` rather than `alias` to read Comunio's camelCase
+  fields. A plain `alias` also changes the *output*, so `structuredContent` would come out
+  as a mix of `teamValue` and `budget`.
 - Model fields are **snake_case in Python** and serialised to camelCase on the wire:
   `ToolAnnotations(read_only_hint=True)` appears as `"readOnlyHint": true` in
   `tools/list`.

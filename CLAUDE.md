@@ -83,6 +83,12 @@ Docker. Rationale in [`docs/architecture.md`](docs/architecture.md) (Decision 3)
   decoration.
 - Tools live one module per resource under `src/comunio_mcp/tools/`, each exposing `register(mcp)`,
   called from `server.py`.
+- A tool that needs Comunio takes `ctx: Context` from **`mcp.server.mcpserver`** (not
+  `mcp.server.context`, which fails at import) and reaches the app through
+  `ctx.request_context.lifespan_context`.
+- **No path is hardcoded.** Routes come from the `_links` index via `session.link("game:squad")`.
+- **Models are allowlists.** Declare only the fields worth exposing; the raw responses carry
+  email, invitation codes and other data that must never reach the model's context.
 
 ## Documentation
 
@@ -98,18 +104,17 @@ Written so far:
 | [`docs/setup.md`](docs/setup.md) | Building the image and connecting it to an MCP client |
 | [`docs/development.md`](docs/development.md) | Layout, dev commands, running the server by hand, SDK gotchas |
 | [`docs/comunio-api.md`](docs/comunio-api.md) | Comunio endpoints, authentication, headers, quirks and unknowns |
-
-Planned, created as each part is implemented — link them here and from `README.md` when they land:
-
-| Document | Contents |
-| --- | --- |
-| `docs/tools.md` | MCP tool catalogue: parameters, response, layer and effects |
+| [`docs/tools.md`](docs/tools.md) | MCP tool catalogue: parameters, response, layer and effects |
 
 Criteria:
 
 - `README.md` is the entry point (what it is, quick start, links to `docs/`). Detail lives in
   `docs/`, not in the README.
 - Every MCP tool is documented in `docs/tools.md` **in the same change** that implements it.
+- **Never put real account data in fixtures, docs, commits or PRs.** When a real API response is
+  used as a reference, copy the *shape* and invent every value. Ids, league names and amounts
+  identify a real account, and git history does not forget. Test fixtures define named constants
+  (`USER_ID`, `MANAGER_NAME`) so no literal is repeated.
 - Tool descriptions in code are what the model reads: they must be precise and state explicitly
   whether the tool mutates state.
 - Document the *why* behind non-obvious decisions, not the *what* (the code already says that).
