@@ -4,7 +4,7 @@ from mcp.server import MCPServer
 
 from comunio_mcp.context import lifespan
 from comunio_mcp.metadata import SERVER_NAME, SERVER_VERSION
-from comunio_mcp.tools import account, market, ping, squad, standings
+from comunio_mcp.tools import account, market, offers, ping, squad, standings
 
 mcp = MCPServer(
     SERVER_NAME,
@@ -22,3 +22,4 @@ account.register(mcp)
 squad.register(mcp)
 standings.register(mcp)
 market.register(mcp)
+offers.register(mcp)

@@ -278,6 +278,56 @@ The response links to `game:exchangemarket:placeoffers` (`/offers`), `addplayer`
 `removeplayer` and `updateRecommendedPrice`. Those are the mutating routes a future
 `execute_bid` will need. Nothing calls them today.
 
+## Offers: `game:readOffers`
+
+**Returns HTTP 500 without `?current`.** It is a *valueless* query flag — `?current`, not
+`?current=true` — so it is appended to the URL rather than passed as a parameter. A plain
+GET on the link looks like a broken endpoint; it is not.
+
+```
+credit, hasMore
+items[]
+├── id, type, state, price, exchange, datecreated, datechanged
+├── tradable         → the player, with quotedPrice / recommendedPrice
+├── user             → who made the offer
+├── tradingPartner   → the manager on the other side
+└── _links           → game:offer:decline, game:offer:withdraw
+```
+
+### `credit` is not `budget`
+
+The index reports a budget; this endpoint reports **credit**, and they differ. The league's
+`creditfactor: "dynamic"` rule means spending power exceeds cash in hand. Sizing a bid
+against the budget would understate what is actually possible, so `credit` is what
+`get_offers` surfaces and what a bid should be measured against.
+
+### Direction has to be derived
+
+Nothing in an offer says whether it is incoming or outgoing. It comes from comparing
+`user.id` — who made the offer — with the signed-in manager: their own id means outgoing,
+anyone else means somebody wants one of their players.
+
+### Offers are not always generous
+
+`price` against the player's `quotedPrice` is the whole point of reading this endpoint, and
+the difference goes both ways: observed premiums ranged from **−2.8 % to +3.8 %** in a
+single response, all from the computer. `premium` and `premium_pct` are computed so nobody
+accepts a below-value offer by assuming an offer is a good one.
+
+### Quirks
+
+- **`onWatchlist` is a boolean sent as the string `"false"`**, while the same concept is a
+  real boolean named `watched` in the squad and market endpoints.
+- **`points` is `0` here**, an integer, where the squad and market endpoints send the
+  string `"-"` for the same "no data" state.
+- Some manager names carry a **trailing space**. They are stripped.
+
+### Write endpoints, noted but unused
+
+Each offer links `game:offer:decline` and `game:offer:withdraw`, and the collection links
+`game:placeOffers`. Those are what a future `execute_bid` and its siblings will use.
+Nothing calls them.
+
 ## How this is wired up
 
 | Piece | Responsibility |
