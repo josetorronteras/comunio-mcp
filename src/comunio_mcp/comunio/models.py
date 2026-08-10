@@ -527,6 +527,18 @@ class UnlistResult(BaseModel):
     unlisted: list[int] = Field(description="Player ids the request asked to take off sale")
 
 
+class AskingPriceResult(BaseModel):
+    """What came back from changing a listed player's asking price.
+
+    This endpoint answers with a bare `true`, not an object, so there is nothing to read
+    beyond whether it worked.
+    """
+
+    ok: bool = Field(description="Whether Comunio accepted the change")
+    player_id: int = Field(description="Player whose price was changed")
+    price: int = Field(description="The asking price that was requested, in euros")
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 

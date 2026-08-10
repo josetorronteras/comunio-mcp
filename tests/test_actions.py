@@ -7,6 +7,7 @@ import pytest
 from comunio_mcp.comunio.actions import (
     list_on_market,
     parse_listing_result,
+    set_asking_price,
     unlist_from_market,
 )
 from comunio_mcp.comunio.auth import ComunioAuth
@@ -169,3 +170,54 @@ def test_unlisting_is_not_retried_after_a_401():
         _run(handler, lambda s, c: unlist_from_market(s, c, 3354))
 
     assert len(handler.writes) == 1
+
+
+def test_the_asking_price_is_set_with_the_documented_body():
+    handler = FakeApi(add_response=True)
+
+    result = _run(handler, lambda s, c: set_asking_price(s, c, 3354, 370_001))
+
+    request = handler.writes[0]
+    # A PUT, where the other market actions are POSTs.
+    assert request.method == "PUT"
+    assert request.url.path.endswith("/exchangemarket/recommendedprice")
+    # `playerId` here, and a different word for the amount.
+    assert json.loads(request.content) == {"playerId": 3354, "newPrice": 370_001}
+    assert result.ok is True
+    assert result.player_id == 3354
+    assert result.price == 370_001
+
+
+def test_a_bare_true_is_the_whole_response():
+    # Every other action answers with an object. This one answers with a boolean.
+    handler = FakeApi(add_response=True)
+
+    result = _run(handler, lambda s, c: set_asking_price(s, c, 3354, 370_001))
+
+    assert result.ok is True
+
+
+def test_anything_other_than_true_is_a_failure():
+    handler = FakeApi(add_response=False)
+
+    result = _run(handler, lambda s, c: set_asking_price(s, c, 3354, 370_001))
+
+    assert result.ok is False
+
+
+def test_setting_a_price_is_not_retried_after_a_401():
+    handler = FakeApi(add_response=True, unauthorized_first=True)
+
+    with pytest.raises(httpx2.HTTPStatusError):
+        _run(handler, lambda s, c: set_asking_price(s, c, 3354, 370_001))
+
+    assert len(handler.writes) == 1
+
+
+def test_a_price_of_zero_is_refused_before_the_put():
+    handler = FakeApi(add_response=True)
+
+    with pytest.raises(ValueError):
+        _run(handler, lambda s, c: set_asking_price(s, c, 3354, 0))
+
+    assert handler.writes == []
