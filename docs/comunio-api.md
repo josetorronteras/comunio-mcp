@@ -157,6 +157,56 @@ buyout clauses).
   `community.rules`.
 - URLs come with escaped slashes (`https:\/\/…`), which is valid JSON and decodes itself.
 
+## The squad: `game:squad`
+
+`/users/:userId/squad`, no community id — see the note above. Returns `items[]`, the
+current `tactic`, and links to add or remove a player from the market (write endpoints,
+not used yet).
+
+Per player it carries availability, scoring, prices, lineup state and the next fixture.
+`status` is `ACTIVE` or something like `WEAKENED`, with `statusInfo` naming the injury.
+`nextMatch.kickoff` is a timezone-aware timestamp and is where a lineup deadline will
+come from.
+
+### "No data" is encoded five different ways
+
+In a single response:
+
+| Field | Encoding | Notes |
+| --- | --- | --- |
+| `points` | `"-"` | A dash string, not null |
+| `lastPoints` | `null` or `"4"` | Differs between players in the same response |
+| `averagePoints` | `"0"` or `3.5` | **String in one row, number in another** |
+| `recommendedprice` | `-1` | Sentinel, not a price |
+| `pos` | `""` | Empty until the player is lined up |
+
+`MissingInt`, `MissingFloat`, `MissingStr` and `SentinelInt` in `models.py` normalise all
+of these to `null`. Treating `-1` as a price or `"-"` as a number would poison any
+arithmetic downstream, which is precisely the kind of error the deterministic layer exists
+to avoid.
+
+### Other observations
+
+- `owner` is repeated identically on every player. The model hoists it to the top level.
+- Roughly half of each player object is `_links` for logos, photos and watchlist actions.
+- `nextMatch` is `null` for players whose fixture is not scheduled yet.
+
+## Standings: `game:standings`
+
+**Requires query parameters**: `?period=total&wpe=true`. Without them the response is not
+JSON at all, which is why a naive `GET` on the link fails. `Session.link()` does not
+handle query parameters yet — that has to be added before this endpoint can be used.
+
+The payload is HAL with `_embedded`, a shape the index does not use: each row carries
+`_embedded.user` and `_embedded.teamInfo`. Two fields stand out for market strategy:
+`negativeBudget` per rival, and each rival's `teamValue` with a `game:squad` link to
+inspect their squad.
+
+Watch out: `lastPoints` is `"-"` here too, and before the season starts every `position`
+and `totalPoints` is `0`, so rank probably has to be derived from array order. Rival
+managers' display names are personal data belonging to third parties; fixtures must invent
+them.
+
 ## How this is wired up
 
 | Piece | Responsibility |

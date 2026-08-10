@@ -51,9 +51,12 @@ class ComunioClient:
         self._http = http
         self._auth = auth
 
-    async def get(self, path: str, **kwargs: Any) -> Any:
-        """GET a JSON endpoint and return the decoded body."""
-        response = await self._request("GET", path, **kwargs)
+    async def get(self, target: str, **kwargs: Any) -> Any:
+        """GET a JSON endpoint and return the decoded body.
+
+        Accepts a path or a full URL, because the links in Comunio's index are absolute.
+        """
+        response = await self._request("GET", target, **kwargs)
         return response.json()
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx2.Response:
@@ -72,4 +75,8 @@ class ComunioClient:
     async def _send(self, method: str, path: str, **kwargs: Any) -> httpx2.Response:
         token = await self._auth.access_token()
         headers = {**kwargs.pop("headers", {}), "authorization": f"Bearer {token}"}
-        return await self._http.request(method, f"{BASE_URL}{path}", headers=headers, **kwargs)
+        return await self._http.request(method, _absolute(path), headers=headers, **kwargs)
+
+
+def _absolute(target: str) -> str:
+    return target if target.startswith("http") else f"{BASE_URL}{target}"

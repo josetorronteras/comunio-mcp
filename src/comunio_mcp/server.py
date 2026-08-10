@@ -4,7 +4,7 @@ from mcp.server import MCPServer
 
 from comunio_mcp.context import lifespan
 from comunio_mcp.metadata import SERVER_NAME, SERVER_VERSION
-from comunio_mcp.tools import account, ping
+from comunio_mcp.tools import account, ping, squad
 
 mcp = MCPServer(
     SERVER_NAME,
@@ -19,3 +19,4 @@ mcp = MCPServer(
 
 ping.register(mcp)
 account.register(mcp)
+squad.register(mcp)
