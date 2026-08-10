@@ -460,6 +460,102 @@ codes to plain language, handles the `WAS_` prefix by rule, and returns `None` f
 anything unrecognised: it is a lookup, not a validator, and `status` stays a plain string
 everywhere.
 
+## Write endpoints
+
+Captured from the web app, all six verified against a real account. **Nothing in this
+project calls any of them.** They are written down so the execute layer can be built from
+facts rather than guesses, and because several of the details below are the kind that
+cause silent, expensive bugs.
+
+| Action | Method | Path | Body |
+| --- | --- | --- | --- |
+| List a player | POST | `…/exchangemarket/addplayer` | `{"items":[{"tradableId":N,"price":N}]}` |
+| Change asking price | PUT | `…/exchangemarket/recommendedprice` | `{"playerId":N,"newPrice":N}` |
+| Unlist a player | POST | `…/exchangemarket/removeplayer` | `{"tradableIds":[N]}` |
+| Place a bid | POST | `…/offers` | `{"offers":[{"price":N,"tradableid":N,"type":"NEW"}]}` |
+| Accept an offer | POST | `…/offers` | `{"offers":[{"offerid":N,"tradableid":N,"price":N,"type":"ACCEPT"}]}` |
+| Withdraw an offer | PUT | `…/offers/{offerId}` | `{}` |
+
+### One route, three meanings
+
+`POST …/offers` places a bid, accepts an offer and — presumably — declines one, told apart
+only by `type`. Observed values: **`NEW`** for a bid and **`ACCEPT`** for accepting. The
+value for declining has not been captured; the offers payload links
+`game:offer:decline` and `game:offer:withdraw` at the same `…/offers/{offerId}` path,
+where a `PUT` with an empty body withdraws.
+
+So the most dangerous action in the API shares a route with the most routine one, and a
+wrong `type` is a valid request.
+
+### The asymmetry that matters most
+
+| | Placing a bid | Accepting an offer |
+| --- | --- | --- |
+| `processImmediately` | `false` | **`true`** |
+| Effect | Queued until the transfer round | **Applied instantly** |
+| Reversible | Yes, by withdrawing | **No** |
+
+Accepting is irreversible the moment the request returns. Any confirmation shown before
+accepting has to be stronger than the one before bidding, because there is nothing to undo
+it with.
+
+A bid returns the new `offerid` in its response — that is the only way to get the handle
+needed to withdraw it later.
+
+### Two levels of status, and only one of them is trustworthy
+
+```json
+{"status":"OK",
+ "response":[{"offerid":…,"status":"OK","message":"","processImmediately":false}],
+ "opponentIds":""}
+```
+
+The outer `status` says the request was processed. The per-item `status` and `message` say
+whether *that operation* worked. **An outer `OK` with a failed item inside is entirely
+possible**, and reporting success from the outer field alone is how a tool ends up telling
+someone a bid was placed when it was not.
+
+`addplayer` expresses the same idea differently, with a `notPlaced` array listing the ones
+that did not go through. Both are batch endpoints, so partial success is the normal case,
+not an edge case.
+
+### Four spellings of one field
+
+The same player id, across four sibling endpoints:
+
+```
+addplayer            tradableId      (camelCase, inside items[])
+recommendedprice     playerId        (a different word entirely)
+removeplayer         tradableIds     (plural array)
+offers               tradableid      (all lowercase)
+```
+
+Send `playerId` where `tradableid` is expected and the request is still well-formed JSON.
+
+### Responses have no common shape
+
+`{"status":"OK","notPlaced":[],"purchasePrices":{…},"remaining":36}`, then a bare `true`,
+then `{"status":"OK"}`, then the two-level object above. There is no envelope to parse
+generically: **each action needs its own request and response model.**
+
+### Never auto-retry these
+
+`ComunioClient` retries once on a 401. That is safe for `GET` and dangerous for everything
+here: if a write reaches Comunio, takes effect, and the response is lost, a retry applies
+it twice — a bid placed twice, a player listed twice. When `post()` and `put()` are added,
+the retry must not cover them.
+
+### Still unknown
+
+- The `type` value for declining an offer.
+- Whether `decline` and `withdraw`, which share a path, differ by method or by who owns
+  the offer.
+- What `remaining: 36` counts in the `addplayer` response. Market listings carry their own
+  `remaining: 14`, so the two are not the same thing.
+- What `opponentIds` is for; it has only ever come back as an empty string.
+- Whether any of these are idempotent, and what a rejected bid looks like when credit is
+  insufficient.
+
 ## How this is wired up
 
 | Piece | Responsibility |
