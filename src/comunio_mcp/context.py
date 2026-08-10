@@ -12,6 +12,7 @@ from comunio_mcp.comunio.auth import ComunioAuth
 from comunio_mcp.comunio.client import ComunioClient, default_headers
 from comunio_mcp.comunio.session import Session
 from comunio_mcp.config import ConfigError, Settings
+from comunio_mcp.proposals import ProposalStore
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,9 @@ class AppContext:
     #: sees a working server and a clear error instead of a process that dies at boot.
     comunio: ComunioClient | None
     session: Session | None = None
+    #: Where proposals wait between being made and being executed. Present even without
+    #: credentials, since it needs nothing from Comunio.
+    proposals: ProposalStore | None = None
 
 
 @asynccontextmanager
@@ -35,12 +39,16 @@ async def lifespan(_server: MCPServer) -> AsyncIterator[AppContext]:
         yield AppContext(comunio=None)
         return
 
-    async with httpx2.AsyncClient(
-        headers=default_headers(settings), timeout=REQUEST_TIMEOUT_SECONDS
-    ) as http:
-        auth = ComunioAuth(http, settings)
-        client = ComunioClient(http, auth)
-        yield AppContext(comunio=client, session=Session(client))
+    proposals = ProposalStore(settings.proposals_path)
+    try:
+        async with httpx2.AsyncClient(
+            headers=default_headers(settings), timeout=REQUEST_TIMEOUT_SECONDS
+        ) as http:
+            auth = ComunioAuth(http, settings)
+            client = ComunioClient(http, auth)
+            yield AppContext(comunio=client, session=Session(client), proposals=proposals)
+    finally:
+        proposals.close()
 
 
 _MISSING_CREDENTIALS = (
@@ -61,3 +69,10 @@ def require_session(app: AppContext) -> Session:
     if app.session is None:
         raise RuntimeError(_MISSING_CREDENTIALS)
     return app.session
+
+
+def require_proposals(app: AppContext) -> ProposalStore:
+    """Return the proposal store, or fail with a message that says how to fix it."""
+    if app.proposals is None:
+        raise RuntimeError(_MISSING_CREDENTIALS)
+    return app.proposals

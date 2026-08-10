@@ -76,6 +76,27 @@ Since MCP is stateless as of `2026-07-28`, proposals cannot live in connection m
 **persisted** with an expiry, which also gives us an audit trail: what was proposed, when, with what
 numbers, and whether it was executed.
 
+### How proposals are stored
+
+`proposals.py` keeps them in SQLite under `COMUNIO_STATE_DIR`. What is stored is the
+*whole* proposal — the payload and the summary the user was shown — so an execution has no
+freedom to differ from what was approved.
+
+Two properties carry the weight:
+
+- **A proposal can be claimed at most once.** The claim is a single conditional `UPDATE`
+  that moves `claimed_at` away from `NULL`. A repeated or retried execution loses that
+  race rather than applying the same move twice. The checks before it are advisory; the
+  `UPDATE` is what actually decides.
+- **A proposal expires.** A lineup is meaningless after kick-off and a bid after the
+  transfer round, so a stale proposal is refused rather than applied late.
+
+A claim also checks the *kind*, so `execute_lineup` cannot apply a bid proposal.
+
+Outcomes are recorded against the proposal after the fact. Purging removes stale
+proposals that were never executed and keeps the executed ones: the audit trail outlives
+the proposal's usefulness.
+
 ### Open sub-policy
 
 What `execute_*` does when the client does **not** support `elicitation`: refuse outright, or fall
