@@ -9,7 +9,6 @@ can tell them apart and ask before running one.
 
 | Tool | Layer | Arguments | Returns |
 | --- | --- | --- | --- |
-| `ping` | read | — | Server name, version and UTC time |
 | `get_account` | read | — | Budget, squad totals, formation and league rules |
 | `get_squad` | read | `manager_id?` | Every player in a squad — the manager's own, or a rival's |
 | `get_standings` | read | — | The league table, with rival squad values and who is broke |
@@ -19,7 +18,7 @@ can tell them apart and ask before running one.
 | `get_player` | read | `player_id` | One player's full detail sheet |
 | `list_player_on_market` | **write** | `player_id`, `price` | Puts one of your players up for sale |
 | `unlist_player_from_market` | **write** | `player_id` | Takes one of your players back off sale |
-| `set_asking_price` | **write** | `player_id`, `price` | Changes what you are asking for a listed player |
+| `change_listing_price` | **write** | `player_id`, `price` | Changes what you are asking for a listed player |
 | `place_bid` | **write** | `player_id`, `price` | Bids for a player on the market |
 | `change_bid` | **write** | `offer_id`, `price` | Changes the amount of a bid you already placed |
 | `withdraw_bid` | **write** | `offer_id` | Pulls one of your bids out of the running |
@@ -28,13 +27,6 @@ can tell them apart and ask before running one.
 | `get_watchlist` | read | — | Players being kept an eye on |
 | `watch_player` | write | `player_id` | Adds a player to the watchlist |
 | `unwatch_player` | write | `player_id` | Removes a player from the watchlist |
-
-## `ping`
-
-Liveness check. Answers even when no credentials are configured, so it distinguishes "the
-server is not running" from "the server cannot reach Comunio".
-
-Annotated `read_only_hint=True`. Touches nothing.
 
 ## `get_account`
 
@@ -316,17 +308,21 @@ That is the whole response. Where `addplayer` reports a `notPlaced` array, this 
 nothing per player, so `unlisted` is **what was asked for rather than what was
 confirmed**. The model's description says so, and points at `get_market` for confirmation.
 
-## `set_asking_price`
+## `change_listing_price`
 
 **Changes the team.** Changes what the manager is asking for a player they already have on
 the market. The player must be listed first.
 
-### The name is deliberate
+### The name is deliberate, twice over
 
 Comunio calls this route `recommendedprice`, and the link `updateRecommendedPrice`. It does
 **not** touch Comunio's recommendation — it sets the manager's own asking price. Naming the
 tool after the route would have told the model it was adjusting the game's suggestion,
-which is the opposite of what happens. The `recommended_price` reported by `get_market` and
+which is the opposite of what happens.
+
+It is also not called `set_asking_price`, which was the first attempt: that name says
+nothing about the player having to be **listed already**. "Listing price" does, and it
+pairs with `list_player_on_market` and `unlist_player_from_market`. The `recommended_price` reported by `get_market` and
 `get_player` is Comunio's own and cannot be changed.
 
 ### The odd one out, twice over

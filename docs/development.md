@@ -15,7 +15,7 @@ src/comunio_mcp/
 ├── metadata.py           server name and version, shared by server and tools
 ├── server.py             the MCPServer instance and tool registration
 └── tools/
-    └── ping.py           one module per resource, each exposing register(mcp)
+    └── squad.py          one module per tool, each exposing register(mcp)
 tests/
 ```
 
@@ -50,7 +50,7 @@ handshake:
 ```bash
 META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"smoke","version":"1.0.0"},"io.modelcontextprotocol/clientCapabilities":{}}'
 
-{ printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"ping\",\"arguments\":{},$META}}"; sleep 3; } \
+{ printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_account\",\"arguments\":{},$META}}"; sleep 3; } \
   | docker run -i --rm comunio-mcp 2>/dev/null
 ```
 
