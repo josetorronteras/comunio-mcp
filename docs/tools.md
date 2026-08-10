@@ -15,6 +15,7 @@ the user has already approved.
 | `get_standings` | read | — | The league table, with rival squad values and who is broke |
 | `get_market` | read | — | Every player up for sale, with prices, trend and seller |
 | `get_offers` | read | — | Open offers in both directions, and real spending power |
+| `get_transfers` | read | `limit?` | Completed transfers with the prices actually paid |
 
 ## `ping`
 
@@ -190,3 +191,34 @@ available here.
 - **`premium` and `premium_pct`** — an offer is not automatically a good one. Real
   responses have carried premiums from -2.8% to +3.8% in the same batch.
 - **`below_quoted`** — how many incoming offers are worth less than the player.
+
+## `get_transfers`
+
+Transfers that have already completed, newest first.
+
+The point of this tool is **settled prices**. `get_market` says what a player is listed at;
+this says what one actually went for, which is what a bid should be calibrated against.
+
+Per transfer: `player`, `player_id`, `price`, `from_manager`, `to_manager`, `date`, and
+
+| Field | Meaning |
+| --- | --- |
+| `from_computer` | Bought from Comunio |
+| `to_computer` | Sold back to Comunio |
+| `involves_me` | The signed-in manager was on one side |
+| `kind` | The bucket Comunio filed it under |
+| `immediate_at` | Clock time of a sale that did not wait for the transfer round |
+
+`summary` totals each kind plus `total_value`.
+
+`limit` defaults to one page of news. Larger values cost one extra request per page, so it
+is worth raising only when the extra history is wanted.
+
+Annotated `read_only_hint=True`.
+
+### What it deliberately does not return
+
+There is no transfers endpoint — these come out of the league news feed, which is mostly
+promotional HTML, welcome messages and administration notices. All of that is dropped. A
+single marketing entry in that feed is longer than every transfer in it put together, and
+none of it belongs in a model's context.

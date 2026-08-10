@@ -359,6 +359,48 @@ class Offers(BaseModel):
     offers: list[Offer]
 
 
+class Transfer(BaseModel):
+    """A completed transfer. What a player actually changed hands for."""
+
+    player_id: int = Field(description="Player identifier")
+    player: str = Field(description="Player name")
+    price: int = Field(description="What was actually paid, in euros")
+
+    from_manager: str = Field(description="Who the player came from")
+    from_id: int = Field(description="Identifier of the seller")
+    to_manager: str = Field(description="Who the player went to")
+    to_id: int = Field(description="Identifier of the buyer")
+
+    kind: str = Field(
+        description="Which bucket Comunio filed it under, e.g. FROM_COMPUTER or TO_COMPUTER"
+    )
+    from_computer: bool = Field(description="Bought from Comunio itself")
+    to_computer: bool = Field(description="Sold back to Comunio itself")
+    involves_me: bool = Field(description="The signed-in manager was on one side of it")
+
+    date: datetime = Field(description="When the transfer round that settled it ran")
+    immediate_at: MissingStr = Field(
+        default=None,
+        description="Time of day of an immediate sale, when it did not wait for the round. "
+        "A clock time only, with no date.",
+    )
+
+
+class TransfersSummary(BaseModel):
+    total: int = Field(description="Transfers returned")
+    bought_from_computer: int = Field(description="Players bought from Comunio")
+    sold_to_computer: int = Field(description="Players sold back to Comunio")
+    between_managers: int = Field(description="Transfers between two managers")
+    mine: int = Field(description="Transfers the signed-in manager was part of")
+    total_value: int = Field(description="Everything added up, in euros")
+
+
+class Transfers(BaseModel):
+    summary: TransfersSummary
+    has_more: bool = Field(description="Whether older transfers exist beyond what was fetched")
+    transfers: list[Transfer] = Field(description="Newest first")
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 
