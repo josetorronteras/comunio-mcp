@@ -63,16 +63,22 @@ installed on the host beyond Docker itself.
 
 ## Stack
 
-Python, targeting MCP protocol version **`2026-07-28`**. Details and sources in
-[`docs/mcp-protocol.md`](docs/mcp-protocol.md). Three things that trip people up:
+Python 3.12 on MCP protocol version **`2026-07-28`**, SDK `mcp[cli]>=2.0.0,<3.0.0`, everything in
+Docker. Rationale in [`docs/architecture.md`](docs/architecture.md) (Decision 3), practical notes in
+[`docs/development.md`](docs/development.md). Things that trip people up:
 
-- **MCP Python SDK 2.0.0 or higher**, Python 3.10+. The entry class is `MCPServer`
-  (`from mcp.server import MCPServer`) — **not** the older `FastMCP`. Most examples online are
-  written against the old API and do not apply.
+- The entry class is `MCPServer` (`from mcp.server import MCPServer`). **`mcp.server.fastmcp` does
+  not exist in 2.0.0** — it was removed, not renamed. Most examples online are 1.x and will not run;
+  check the import path before trusting a snippet.
+- Model fields are **snake_case in Python**, camelCase on the wire:
+  `ToolAnnotations(read_only_hint=True)` serialises as `"readOnlyHint": true`.
+- The HTTP client bundled with the SDK is **`httpx2`**, not `httpx`.
 - **Never write to stdout** in a stdio server: `print()` corrupts the JSON-RPC stream. Use
   `logging.getLogger(__name__)`, which writes to stderr. MCP's own logging primitive is deprecated.
 - Tool schemas are generated from **type hints and docstrings**, so both are load-bearing code, not
   decoration.
+- Tools live one module per resource under `src/comunio_mcp/tools/`, each exposing `register(mcp)`,
+  called from `server.py`.
 
 ## Documentation
 
@@ -85,6 +91,8 @@ Written so far:
 | --- | --- |
 | [`docs/architecture.md`](docs/architecture.md) | Design decisions and the reasoning behind them |
 | [`docs/mcp-protocol.md`](docs/mcp-protocol.md) | MCP `2026-07-28` notes filtered by what affects this project |
+| [`docs/setup.md`](docs/setup.md) | Building the image and connecting it to an MCP client |
+| [`docs/development.md`](docs/development.md) | Layout, dev commands, running the server by hand, SDK gotchas |
 
 Planned, created as each part is implemented — link them here and from `README.md` when they land:
 
@@ -92,8 +100,6 @@ Planned, created as each part is implemented — link them here and from `README
 | --- | --- |
 | `docs/tools.md` | MCP tool catalogue: parameters, response, layer and effects |
 | `docs/comunio-api.md` | Comunio endpoints used, authentication, formats, quirks and limits |
-| `docs/setup.md` | Installation, environment variables, connecting the server to an MCP client |
-| `docs/development.md` | How to run, test and debug (via Docker) |
 
 Criteria:
 
