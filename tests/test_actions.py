@@ -5,6 +5,7 @@ import httpx2
 import pytest
 
 from comunio_mcp.comunio.actions import (
+    accept_offer,
     change_bid,
     list_on_market,
     parse_listing_result,
@@ -557,5 +558,128 @@ def test_a_change_is_not_retried_after_a_401():
 
     with pytest.raises(httpx2.HTTPStatusError):
         _run(handler, lambda s, c: change_bid(s, c, 9000003, 810_001))
+
+    assert len(handler.writes) == 1
+
+
+ACCEPT_OK = {
+    "status": "OK",
+    "response": [
+        {
+            "offerid": 9000003,
+            "tradableid": 3871,
+            "price": 810_000,
+            "type": "ACCEPT",
+            "status": "OK",
+            "message": "",
+            # The distinguishing property: it is applied at once.
+            "processImmediately": True,
+        }
+    ],
+    "opponentIds": "",
+}
+
+
+def _accepting_api(**kwargs):
+    """An offer from somebody else for one of the manager's players."""
+    return FakeApi(
+        add_response=kwargs.pop("add_response", ACCEPT_OK),
+        offers=kwargs.pop("offers", {**_offers_payload(offerer_id=1), "credit": 0}),
+        **kwargs,
+    )
+
+
+def test_an_offer_is_accepted_with_the_documented_body():
+    handler = _accepting_api()
+
+    result = _run(handler, lambda s, c: accept_offer(s, c, 9000003))
+
+    request = handler.writes[0]
+    assert request.method == "POST"
+    assert json.loads(request.content) == {
+        "offers": [
+            {
+                "offerid": 9000003,
+                "tradableid": 3871,
+                "price": 810_000,
+                "type": "ACCEPT",
+            }
+        ]
+    }
+    assert result.ok is True
+
+
+def test_the_price_and_player_come_from_the_offer_not_from_arguments():
+    # What is accepted is exactly what was offered; there is no argument to get wrong.
+    handler = _accepting_api()
+
+    result = _run(handler, lambda s, c: accept_offer(s, c, 9000003))
+
+    assert result.player_id == 3871
+    assert result.player == "Defensa Objetivo"
+    assert result.price == 810_000
+    assert result.buyer == "Somebody"
+
+
+def test_an_acceptance_is_reported_as_immediate():
+    # This is what makes it irreversible, so it is surfaced rather than buried.
+    handler = _accepting_api()
+
+    result = _run(handler, lambda s, c: accept_offer(s, c, 9000003))
+
+    assert result.applied_immediately is True
+
+
+def test_selling_below_value_is_surfaced_in_the_result():
+    below = _offers_payload(offerer_id=1)
+    below["items"][0]["price"] = 780_000  # quoted is 810,000
+    handler = _accepting_api(offers={**below, "credit": 0})
+
+    result = _run(handler, lambda s, c: accept_offer(s, c, 9000003))
+
+    assert result.premium == -30_000
+    assert result.premium_pct == -3.7
+
+
+def test_accepting_your_own_bid_is_refused_before_anything_is_sent():
+    handler = _accepting_api(
+        offers={**_offers_payload(offerer_id=int(USER_ID)), "credit": 0}
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        _run(handler, lambda s, c: accept_offer(s, c, 9000003))
+
+    assert "nothing to accept" in str(excinfo.value)
+    assert handler.writes == []
+
+
+def test_accepting_an_unknown_offer_is_refused_before_anything_is_sent():
+    handler = _accepting_api()
+
+    with pytest.raises(ValueError):
+        _run(handler, lambda s, c: accept_offer(s, c, 12345))
+
+    assert handler.writes == []
+
+
+def test_a_rejected_acceptance_is_read_from_the_per_item_status():
+    rejected = {
+        "status": "OK",
+        "response": [{"offerid": 9000003, "status": "ERROR", "message": "Too late"}],
+    }
+    handler = _accepting_api(add_response=rejected)
+
+    result = _run(handler, lambda s, c: accept_offer(s, c, 9000003))
+
+    assert result.ok is False
+    assert result.message == "Too late"
+
+
+def test_an_acceptance_is_not_retried_after_a_401():
+    # Doubly important here: a retried acceptance could not be undone.
+    handler = _accepting_api(unauthorized_first=True)
+
+    with pytest.raises(httpx2.HTTPStatusError):
+        _run(handler, lambda s, c: accept_offer(s, c, 9000003))
 
     assert len(handler.writes) == 1
