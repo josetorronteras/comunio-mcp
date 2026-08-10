@@ -447,7 +447,8 @@ class BuyoutClause(BaseModel):
 
     price: MissingInt = Field(
         default=None,
-        description="What paying the clause would cost. Zero when the league has clauses off.",
+        description="What paying the clause would cost, or null when the league has clauses "
+        "off. Never zero: a zero would read as free.",
     )
     paid: bool = Field(description="Whether somebody has already paid it")
     available_from: MissingStr = Field(
@@ -491,7 +492,11 @@ class PlayerDetail(BaseModel):
     purchase_price: MissingInt = Field(
         default=None, description="What the current owner paid, in euros"
     )
-    purchased_on: MissingStr = Field(default=None, description="When the owner bought them")
+    purchased_on: MissingStr = Field(
+        default=None,
+        description="When the owner bought them, or null for a player from the initial "
+        "draft who was never bought",
+    )
     buyout_clause: BuyoutClause
     watched: bool = Field(description="On the signed-in manager's watchlist")
 

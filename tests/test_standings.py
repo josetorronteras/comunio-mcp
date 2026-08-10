@@ -69,3 +69,14 @@ def test_an_empty_table_does_not_crash():
     standings = parse_standings({"id": "total", "items": None}, me=USER_ID)
 
     assert standings.rows == []
+
+
+def test_manager_names_are_stripped(standings_response):
+    padded = json.loads(json.dumps(standings_response))
+    padded["items"][0]["_embedded"]["user"]["name"] = "Rival Uno "
+
+    standings = parse_standings(padded, me=USER_ID)
+
+    # Offers and transfers strip too; without this the same manager fails to match
+    # across tools.
+    assert standings.rows[0].manager == "Rival Uno"

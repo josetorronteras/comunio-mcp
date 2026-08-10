@@ -103,3 +103,42 @@ def test_an_unknown_status_passes_through_untranslated():
     # Status is an open set, so a code we have not seen must not raise.
     assert meaning("SOMETHING_NEW") is None
     assert meaning(None) is None
+
+
+def _never_bought(player_response):
+    """A player from the initial draft: Comunio dates the purchase to the epoch."""
+    payload = json.loads(json.dumps(player_response))
+    payload["purchaseInfo"] = {"date": "1970-01-01T01:00:00+01:00", "price": 0}
+    payload["buyoutClauseInfo"] = {
+        "dateOfAvailability": None, "paid": False, "blockDays": 0, "paidBy": 0, "price": 0
+    }
+    payload["extendedInfo"]["jerseyNumber"] = 0
+    return payload
+
+
+def test_the_epoch_does_not_mean_bought_in_1970(player_response):
+    player = parse_player(_never_bought(player_response))
+
+    assert player.purchased_on is None
+    assert player.purchase_price is None
+
+
+def test_a_disabled_buyout_clause_is_null_not_free(player_response):
+    # Zero would read as "the clause costs nothing", which is the opposite of the truth.
+    player = parse_player(_never_bought(player_response))
+
+    assert player.buyout_clause.price is None
+    assert player.buyout_clause.block_days is None
+
+
+def test_a_missing_shirt_number_is_null_not_zero(player_response):
+    player = parse_player(_never_bought(player_response))
+
+    assert player.profile.shirt_number is None
+
+
+def test_a_date_of_birth_loses_its_invented_time(player_response):
+    payload = json.loads(json.dumps(player_response))
+    payload["extendedInfo"]["dob"] = "1994-01-06T00:00:00+01:00"
+
+    assert parse_player(payload).profile.date_of_birth == "1994-01-06"
