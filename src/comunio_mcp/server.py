@@ -20,6 +20,7 @@ from comunio_mcp.tools import (
     standings,
     transfers,
     unlist_from_market,
+    watchlist,
     withdraw_bid,
 )
 
@@ -44,6 +45,7 @@ standings.register(mcp)
 market.register(mcp)
 offers.register(mcp)
 transfers.register(mcp)
+watchlist.register(mcp)
 
 # Actions that change something.
 list_on_market.register(mcp)

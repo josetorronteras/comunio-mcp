@@ -71,6 +71,12 @@ class ComunioClient:
         response.raise_for_status()
         return response.json()
 
+    async def delete(self, target: str, *, json: Any, **kwargs: Any) -> Any:
+        """DELETE with a JSON body — Comunio wants one. **Never retried**."""
+        response = await self._send("DELETE", target, json=json, **kwargs)
+        response.raise_for_status()
+        return response.json()
+
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx2.Response:
         # Only GET goes through here. Writes call `_send` directly and take the 401 as a
         # failure, because a write that reached Comunio and lost its response would be
