@@ -23,6 +23,7 @@ can tell them apart and ask before running one.
 | `place_bid` | **write** | `player_id`, `price` | Bids for a player on the market |
 | `change_bid` | **write** | `offer_id`, `price` | Changes the amount of a bid you already placed |
 | `withdraw_bid` | **write** | `offer_id` | Pulls one of your bids out of the running |
+| `accept_offer` | **write, irreversible** | `offer_id` | Sells one of your players |
 
 ## `ping`
 
@@ -416,3 +417,35 @@ asserting nothing left the process.
 
 Whether `credit` already accounts for bids currently outstanding is not documented, so the
 check compares against the figure as reported.
+
+## `accept_offer`
+
+**The only action here that cannot be undone.** Accepts an offer for one of the manager's
+players, selling them.
+
+Every other write queues or can be reversed: a bid waits for the transfer round and can be
+withdrawn, a listing can be unlisted, a price can be set again. An acceptance comes back
+with `processImmediately: true`. The player is gone the moment the call returns.
+
+It is the only tool annotated **`destructive_hint=true`**.
+
+### What the model is told to say first
+
+The description requires two things to be stated before asking for agreement: **who** is
+being sold, and **how the price compares to what the player is worth**. That second one is
+`premium` and `premium_pct`, and it is in the result as well as in `get_offers`.
+
+It matters because selling below value is common and invisible unless someone does the
+subtraction. On the real account, three of ten open offers were below the player's quoted
+price — and one of those was accepted for 3,300 less than the player was worth.
+
+The tool does **not** refuse a below-value sale. That is a legitimate move and the
+manager's call; the job here is to make sure it is a choice rather than an accident.
+
+### Nothing is passed in but the id
+
+The player and the price come from the offer itself. What is accepted is exactly what was
+offered, and there is no argument to get wrong.
+
+Only `incoming` offers can be accepted; accepting one of the manager's own bids is refused
+before anything is sent.

@@ -571,6 +571,31 @@ class BidResult(BaseModel):
     )
 
 
+class AcceptResult(BaseModel):
+    """What happened when an offer for one of the manager's players was accepted.
+
+    The only action in this project that cannot be undone. The player leaves the squad
+    immediately and there is no withdrawal, no cancellation and no transfer round to wait
+    through.
+    """
+
+    ok: bool = Field(description="Whether Comunio accepted this particular acceptance")
+    message: MissingStr = Field(default=None, description="Comunio's reason, when it gives one")
+    offer_id: int = Field(description="The offer that was accepted")
+    player_id: int = Field(description="Player who has left the squad")
+    player: MissingStr = Field(default=None, description="That player's name")
+    price: int = Field(description="What was received for them, in euros")
+    premium: int = Field(
+        description="Price minus the player's quoted value. Negative means sold below "
+        "what they were worth."
+    )
+    premium_pct: float = Field(description="The same difference as a percentage")
+    buyer: MissingStr = Field(default=None, description="Who bought the player")
+    applied_immediately: bool = Field(
+        description="True for an acceptance: it takes effect at once and cannot be reversed"
+    )
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 

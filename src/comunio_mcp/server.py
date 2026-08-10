@@ -5,6 +5,7 @@ from mcp.server import MCPServer
 from comunio_mcp.context import lifespan
 from comunio_mcp.metadata import SERVER_NAME, SERVER_VERSION
 from comunio_mcp.tools import (
+    accept_offer,
     account,
     change_bid,
     list_on_market,
@@ -49,4 +50,5 @@ unlist_from_market.register(mcp)
 set_asking_price.register(mcp)
 place_bid.register(mcp)
 change_bid.register(mcp)
+accept_offer.register(mcp)
 withdraw_bid.register(mcp)

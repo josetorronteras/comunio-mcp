@@ -14,13 +14,14 @@ from typing import Any
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.market import fetch_market
 from comunio_mcp.comunio.models import (
+    AcceptResult,
     AskingPriceResult,
     BidResult,
     ListingResult,
     UnlistResult,
     WithdrawResult,
 )
-from comunio_mcp.comunio.offers import OFFERS_LINK, OUTGOING, fetch_offers
+from comunio_mcp.comunio.offers import INCOMING, OFFERS_LINK, OUTGOING, fetch_offers
 from comunio_mcp.comunio.session import Session
 
 MARKET_LINK = "game:exchangemarket"
@@ -137,6 +138,7 @@ async def withdraw_bid(session: Session, client: ComunioClient, offer_id: int) -
 
 BID_NEW = "NEW"
 BID_CHANGE = "CHANGE"
+OFFER_ACCEPT = "ACCEPT"
 
 
 async def place_bid(
@@ -260,4 +262,59 @@ async def change_bid(
         price=price,
         player=match.player.name,
         credit=offers.credit,
+    )
+
+
+async def accept_offer(session: Session, client: ComunioClient, offer_id: int) -> AcceptResult:
+    """Accept an offer for one of the manager's players.
+
+    **The only irreversible action here.** `processImmediately` comes back true: the player
+    leaves the squad at once, with no transfer round to wait through and nothing to undo it
+    with.
+
+    The player and the price are taken from the offer, never from arguments, so what is
+    accepted is exactly what was offered.
+    """
+    offers = await fetch_offers(session, client)
+    match = next((offer for offer in offers.offers if offer.offer_id == offer_id), None)
+
+    if match is None:
+        raise ValueError(
+            f"No open offer with id {offer_id}. Check get_offers for the current ones."
+        )
+    if match.direction != INCOMING:
+        raise ValueError(
+            f"Offer {offer_id} is a bid the manager made, not an offer for one of their "
+            "players. There is nothing to accept."
+        )
+
+    url = await session.link(OFFERS_LINK)
+    payload = await client.post(
+        url,
+        json={
+            "offers": [
+                {
+                    "offerid": offer_id,
+                    "tradableid": match.player.id,
+                    "price": match.price,
+                    "type": OFFER_ACCEPT,
+                }
+            ]
+        },
+    )
+
+    items = payload.get("response") or []
+    item = items[0] if items else {}
+
+    return AcceptResult(
+        ok=item.get("status") == OK,
+        message=item.get("message"),
+        offer_id=offer_id,
+        player_id=match.player.id,
+        player=match.player.name,
+        price=match.price,
+        premium=match.premium,
+        premium_pct=match.premium_pct,
+        buyer=match.offered_by,
+        applied_immediately=bool(item.get("processImmediately")),
     )
