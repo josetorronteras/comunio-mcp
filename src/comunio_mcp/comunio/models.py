@@ -8,6 +8,7 @@ code and Google identifiers, none of which belong in a conversation transcript.
 Numbers arrive from the API as strings (`"20000000"`); Pydantic coerces them.
 """
 
+from datetime import datetime
 from typing import Annotated, Any
 
 from pydantic import BaseModel, BeforeValidator, Field
@@ -18,7 +19,22 @@ def _empty_to_none(value: Any) -> Any:
     return None if value == "" else value
 
 
+def _missing_to_none(value: Any) -> Any:
+    """Comunio writes "no data yet" as a dash, and "not set" as an empty string."""
+    return None if value in ("", "-") else value
+
+
+def _sentinel_to_none(value: Any) -> Any:
+    """`recommendedprice` is -1 when Comunio has no recommendation to give."""
+    return None if value == -1 else value
+
+
 OptionalInt = Annotated[int | None, BeforeValidator(_empty_to_none)]
+#: A number that may arrive as a string, a dash, an empty string or null.
+MissingInt = Annotated[int | None, BeforeValidator(_missing_to_none)]
+MissingFloat = Annotated[float | None, BeforeValidator(_missing_to_none)]
+MissingStr = Annotated[str | None, BeforeValidator(_missing_to_none)]
+SentinelInt = Annotated[int | None, BeforeValidator(_sentinel_to_none)]
 
 
 class CommunityRules(BaseModel):
@@ -96,3 +112,98 @@ class AccountSnapshot(BaseModel):
 
     account: Account
     community: Community
+
+
+class Club(BaseModel):
+    id: int = Field(description="Club identifier")
+    name: str = Field(description="Club name")
+
+
+class NextMatch(BaseModel):
+    """The player's next fixture. Null when none is scheduled yet."""
+
+    home: str = Field(description="Home club")
+    away: str = Field(description="Away club")
+    kickoff: datetime = Field(description="Kick-off time, with timezone")
+
+
+class SquadPlayer(BaseModel):
+    id: int = Field(description="Player identifier, used to bid or to look up history")
+    name: str = Field(description="Player name")
+    club: Club
+    position: str = Field(description="keeper, defender, midfielder or striker")
+
+    # Availability
+    status: str = Field(description="ACTIVE, or WEAKENED and similar when unavailable")
+    status_info: MissingStr = Field(
+        default=None,
+        validation_alias="statusInfo",
+        description="Why the player is unavailable, e.g. an injury description",
+    )
+    next_match: NextMatch | None = Field(
+        default=None, validation_alias="nextMatch", description="Next fixture, if scheduled"
+    )
+
+    # Scoring
+    points: MissingInt = Field(default=None, description="Season points, null before any")
+    last_points: MissingInt = Field(
+        default=None, validation_alias="lastPoints", description="Points in the last matchday"
+    )
+    average_points: MissingFloat = Field(
+        default=None, validation_alias="averagePoints", description="Average points per matchday"
+    )
+    matchday_points: MissingInt = Field(
+        default=None,
+        validation_alias="matchdayPoints",
+        description="Points in the current matchday",
+    )
+    motm: bool = Field(description="Was man of the match")
+
+    # Lineup
+    linedup: bool = Field(description="Currently in the starting eleven")
+    substitute: bool = Field(description="Currently named as a substitute")
+    lineup_slot: MissingStr = Field(
+        default=None,
+        validation_alias="pos",
+        description="Slot in the formation, set only when lined up",
+    )
+
+    # Market
+    quoted_price: int = Field(
+        validation_alias="quotedprice", description="Current market value, in euros"
+    )
+    recommended_price: SentinelInt = Field(
+        default=None,
+        validation_alias="recommendedprice",
+        description="Comunio's suggested asking price, null when it has none",
+    )
+    on_market: bool = Field(
+        validation_alias="onMarket", description="Listed for sale by its owner"
+    )
+    is_exchangeable: bool = Field(
+        validation_alias="isExchangeable", description="Whether it can be traded right now"
+    )
+    has_accepted_offers: bool = Field(
+        validation_alias="hasAcceptedOffers", description="An offer for this player was accepted"
+    )
+    watched: bool = Field(description="On the manager's watchlist")
+
+    model_config = {"populate_by_name": True}
+
+
+class SquadSummary(BaseModel):
+    """Counts the lineup rules are checked against, so nobody has to recount them."""
+
+    total: int = Field(description="Players in the squad")
+    lined_up: int = Field(description="Players in the starting eleven")
+    substitutes: int = Field(description="Players named as substitutes")
+    unavailable: int = Field(description="Players whose status is not ACTIVE")
+    on_market: int = Field(description="Players currently listed for sale")
+    by_position: dict[str, int] = Field(description="How many players per position")
+
+
+class Squad(BaseModel):
+    owner: str | None = Field(default=None, description="Manager the squad belongs to")
+    tactic: str = Field(description="Formation the lineup is set up for, e.g. '442'")
+    summary: SquadSummary
+    players: list[SquadPlayer]

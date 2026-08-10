@@ -106,6 +106,106 @@ INDEX_RESPONSE = {
 }
 
 
+def _player(
+    player_id,
+    name,
+    position,
+    *,
+    club=("Mock FC", 1),
+    points="-",
+    last_points=None,
+    average_points=0,
+    status="ACTIVE",
+    status_info="",
+    quoted=1_000_000,
+    recommended=-1,
+    linedup=False,
+    slot="",
+    substitute=False,
+    on_market=False,
+    next_match=True,
+):
+    club_name, club_id = club
+    return {
+        "id": player_id,
+        "name": name,
+        "club": {
+            "id": club_id,
+            "name": club_name,
+            "_links": {"self": {"href": f"https://api.comunio.es/clubs/{club_id}"}},
+        },
+        "points": points,
+        "lastPoints": last_points,
+        "averagePoints": average_points,
+        "matchdayPoints": 0,
+        "status": status,
+        "statusInfo": status_info,
+        "position": position,
+        "pos": slot,
+        "quotedprice": quoted,
+        "recommendedprice": recommended,
+        "linedup": linedup,
+        "purchaseInfo": None,
+        "nextMatch": {
+            "id": "999001",
+            "home": {"id": club_id, "name": club_name, "_links": {}},
+            "guest": {"id": 99, "name": "Rival FC", "_links": {}},
+            "kickoff": "2026-08-15T19:30:00+02:00",
+        }
+        if next_match
+        else None,
+        "withinSquad": True,
+        "owner": {"id": int(USER_ID), "name": MANAGER_NAME},
+        "nextSeason": False,
+        "hasAcceptedOffers": False,
+        "hasAcceptedBuyoutClauseOffer": False,
+        "motm": False,
+        "watched": False,
+        "matchStatus": "finished",
+        "isExchangeable": False,
+        "notLiveExchangeableReason": "",
+        "substitute": substitute,
+        "wasLiveSubstituted": False,
+        "onMarket": on_market,
+        "_links": {
+            "self": {"href": f"https://api.comunio.es/players/{player_id}"},
+            "photo": {"href": f"https://api.comunio.es/players/{player_id}/photo"},
+        },
+    }
+
+
+#: Every quirk of the real payload is represented here on purpose:
+#: `points` as a dash, `lastPoints` both as a numeric string and as null,
+#: `averagePoints` as a string in one row and an int in another, `recommendedprice` as
+#: the -1 sentinel, `pos` empty until a player is lined up, an injured player, and a
+#: player with no fixture scheduled.
+SQUAD_RESPONSE = {
+    "items": [
+        _player(1001, "Portero Uno", "keeper", linedup=True, slot="1", average_points="0"),
+        _player(1002, "Portero Dos", "keeper", quoted=470_000, recommended=450_000,
+                on_market=True, last_points="4"),
+        _player(1003, "Defensa Uno", "defender", linedup=True, slot="2"),
+        _player(1004, "Defensa Dos", "defender", linedup=True, slot="3"),
+        _player(1005, "Defensa Tres", "defender", substitute=True),
+        _player(1006, "Medio Uno", "midfielder", status="WEAKENED",
+                status_info="Lesión muscular", next_match=False),
+        _player(1007, "Medio Dos", "midfielder", on_market=True, recommended=360_000),
+        _player(1008, "Delantero Uno", "striker", linedup=True, slot="11",
+                quoted=11_390_000, average_points=3.5),
+    ],
+    "tactic": "442",
+    "_links": {
+        "self": {"href": f"https://api.comunio.es/users/{USER_ID}/squad"},
+        "game:exchangemarket:addplayer": {"href": "https://api.comunio.es/x/addplayer"},
+    },
+}
+
+
 @pytest.fixture
 def index_response() -> dict:
     return INDEX_RESPONSE
+
+
+@pytest.fixture
+def squad_response() -> dict:
+    return SQUAD_RESPONSE
