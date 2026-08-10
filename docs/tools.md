@@ -13,6 +13,7 @@ the user has already approved.
 | `get_account` | read | — | Budget, squad totals, formation and league rules |
 | `get_squad` | read | — | Every player, with availability, scoring, prices and lineup state |
 | `get_standings` | read | — | The league table, with rival squad values and who is broke |
+| `get_market` | read | — | Every player up for sale, with prices, trend and seller |
 
 ## `ping`
 
@@ -118,3 +119,31 @@ Annotated `read_only_hint=True`.
 
 Rival rows in the raw response carry `login`, `firstName` and account flags belonging to
 other people. Only the display name, the figures and the id survive.
+
+## `get_market`
+
+Every player currently up for sale.
+
+`closes_at` is when the current transfer round is processed — bids have to be in before
+it. `daily_transfers_processed` says whether today's round has already run.
+
+Per listing: `player_id`, `name`, `club`, `position`, `status` and `status_info`,
+`quoted_price`, `recommended_price`, `trend`, `listed_at`, `remaining`, `watched`, and
+three fields about the seller.
+
+| Field | Meaning |
+| --- | --- |
+| `seller`, `seller_id` | Who is selling |
+| `from_computer` | Listed by Comunio itself, not a rival. Nobody is negotiating. |
+| `is_mine` | The manager's own listing, so not buyable |
+
+`summary` splits the market by seller kind — `from_computer`, `from_managers`, `mine` —
+plus `unavailable` and `by_position`.
+
+Annotated `read_only_hint=True`.
+
+### Computed server-side
+
+`from_computer` comes from a reserved seller id of `1`, and `is_mine` from the session's
+manager id. Neither should be left to an agent to recognise: one is a magic number, the
+other is name matching.

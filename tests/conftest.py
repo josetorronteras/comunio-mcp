@@ -253,9 +253,83 @@ STANDINGS_RESPONSE = {
 }
 
 
+def _listing(
+    player_id,
+    name,
+    position,
+    *,
+    owner_id,
+    owner_name,
+    quoted=1_000_000,
+    recommended=1_000_000,
+    trend=0,
+    status="ACTIVE",
+    status_info="",
+    date="2026-08-10T04:15:06+0200",
+):
+    return {
+        "_links": {"player": {"href": f"https://api.comunio.es/players/{player_id}"}},
+        "date": date,
+        "remaining": 14,
+        "watched": False,
+        "_embedded": {
+            "player": {
+                "_links": {"photo": {"href": "https://api.comunio.es/x/photo"}},
+                "id": player_id,
+                "name": name,
+                "club": {"_links": {}, "id": 5, "name": "Mock FC"},
+                "position": position,
+                "trend": trend,
+                "quotedPrice": quoted,
+                "recommendedPrice": recommended,
+                "status": status,
+                "statusInfo": status_info,
+                "points": "-",
+                "purchasePrice": 0,
+                "watched": False,
+            },
+            "owner": {
+                "_links": {},
+                "id": owner_id,
+                "name": owner_name,
+                "communityId": int(COMMUNITY_ID),
+            },
+        },
+    }
+
+
+#: Note `quotedPrice` with a capital P — the squad endpoint spells the same concept
+#: `quotedprice`. The offset in `date` has no colon (`+0200`), unlike everywhere else.
+MARKET_RESPONSE = {
+    "_links": {
+        "game:exchangemarket:placeoffers": {"href": "https://api.comunio.es/x/offers"},
+    },
+    "items": [
+        _listing(1001, "Delantero Caro", "striker", owner_id=1, owner_name="Computer",
+                 quoted=2_650_000, recommended=2_650_000, trend=1),
+        _listing(1002, "Defensa Barato", "defender", owner_id=1, owner_name="Computer",
+                 quoted=220_000, recommended=220_000, trend=0),
+        _listing(1003, "Medio Propio", "midfielder", owner_id=int(USER_ID),
+                 owner_name=MANAGER_NAME, quoted=430_000, recommended=440_000, trend=-2),
+        _listing(1004, "Medio Lesionado", "midfielder", owner_id=int(USER_ID),
+                 owner_name=MANAGER_NAME, quoted=370_000, recommended=360_000,
+                 status="WEAKENED", status_info="Lesión muscular"),
+        _listing(1005, "Portero Rival", "keeper", owner_id=30000001, owner_name="Rival Uno",
+                 quoted=470_000, recommended=450_000, trend=4),
+    ],
+    "nextTransfersDateTime": "2026-08-11T03:00:00+02:00",
+    "dailyTransfersProcessed": True,
+}
+
+
 @pytest.fixture
 def index_response() -> dict:
     return INDEX_RESPONSE
+
+
+@pytest.fixture
+def market_response() -> dict:
+    return MARKET_RESPONSE
 
 
 @pytest.fixture

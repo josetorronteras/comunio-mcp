@@ -223,6 +223,69 @@ class SquadPlayer(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class MarketListing(BaseModel):
+    """One player up for sale.
+
+    Note the capitalisation: this endpoint sends `quotedPrice`, while the squad endpoint
+    sends `quotedprice` for the same concept. The aliases are not interchangeable.
+    """
+
+    player_id: int = Field(validation_alias="id", description="Player identifier, used to bid")
+    name: str = Field(description="Player name")
+    club: Club
+    position: str = Field(description="keeper, defender, midfielder or striker")
+
+    status: str = Field(description="ACTIVE, or WEAKENED and similar when unavailable")
+    status_info: MissingStr = Field(
+        default=None, validation_alias="statusInfo", description="Why the player is unavailable"
+    )
+    points: MissingInt = Field(default=None, description="Season points, null before any")
+
+    quoted_price: int = Field(
+        validation_alias="quotedPrice", description="Current market value, in euros"
+    )
+    recommended_price: SentinelInt = Field(
+        default=None,
+        validation_alias="recommendedPrice",
+        description="Comunio's suggested price, null when it has none",
+    )
+    trend: int = Field(description="Price movement, negative when falling")
+
+    seller: str = Field(description="Who is selling")
+    seller_id: int = Field(description="Seller identifier")
+    from_computer: bool = Field(
+        description="Listed by Comunio itself rather than by a manager, so nobody is negotiating"
+    )
+    is_mine: bool = Field(description="One of the signed-in manager's own listings")
+
+    listed_at: datetime = Field(description="When the listing appeared")
+    remaining: int = Field(description="Comunio's countdown on the listing")
+    watched: bool = Field(description="On the manager's watchlist")
+
+    model_config = {"populate_by_name": True}
+
+
+class MarketSummary(BaseModel):
+    total: int = Field(description="Players on the market")
+    from_computer: int = Field(description="Listed by Comunio itself")
+    from_managers: int = Field(description="Listed by managers, the signed-in one included")
+    mine: int = Field(description="The signed-in manager's own listings")
+    unavailable: int = Field(description="Listed players whose status is not ACTIVE")
+    by_position: dict[str, int] = Field(description="How many listings per position")
+
+
+class Market(BaseModel):
+    closes_at: datetime | None = Field(
+        default=None,
+        description="When the current round of transfers is processed. Bids must be in by then.",
+    )
+    daily_transfers_processed: bool = Field(
+        description="Whether today's transfer round has already run"
+    )
+    summary: MarketSummary
+    listings: list[MarketListing]
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 

@@ -91,7 +91,7 @@ signed-in manager, their league, and `_links` — **88 named routes** covering t
 API. No path is hardcoded anywhere else in this project; they all come from here.
 
 ```
-game:squad                  game:lineup              game:tradables      (the market)
+game:squad                  game:lineup              game:exchangemarket (the market)
 game:readOffers             game:watchlist           game:currentMatchday
 game:tradableQuoteHistory   game:standings           game:statement      …
 ```
@@ -232,6 +232,51 @@ squad. Fixtures invent the rivals.
 Two fields are genuinely useful for market strategy: **`negativeBudget`** tells you which
 rivals cannot outbid you, and each rival's **`teamValue`** comes with a link to inspect
 their squad.
+
+## The market: `game:exchangemarket`
+
+**Not `game:tradables`.** That link points at a different collection and comes back empty
+here; the market the web app shows is `game:exchangemarket`, at
+`/communities/{communityId}/users/{userId}/exchangemarket`.
+
+Each listing is HAL with `_embedded`, holding the player and the seller:
+
+```
+items[]
+├── date, remaining, watched
+└── _embedded
+    ├── player → id, name, club, position, trend, quotedPrice, recommendedPrice,
+    │            status, statusInfo, points, purchasePrice
+    └── owner  → id, name, communityId
+```
+
+Top level also carries **`nextTransfersDateTime`**, when the current transfer round is
+processed, and `dailyTransfersProcessed`.
+
+### Seller id 1 is Comunio itself
+
+Listings owned by user id `1`, named `Computer`, are put up by the game rather than by a
+rival. That is a different proposition — nobody is negotiating, and no rival is deprived
+of a player — so it is surfaced as `from_computer` instead of leaving an agent to
+recognise the magic id. Listings owned by the signed-in manager are flagged `is_mine`,
+since those are not buyable.
+
+### Two traps
+
+- **`quotedPrice` and `recommendedPrice` are capitalised here**, while the squad endpoint
+  spells the same concepts `quotedprice` and `recommendedprice`. The aliases are not
+  interchangeable, and reusing the squad model here would silently drop both prices.
+- **`date` uses an offset with no colon** (`2026-08-10T04:15:06+0200`), unlike the
+  `+02:00` seen elsewhere. Python parses both, but a hand-rolled parser would not.
+
+`trend` is a small signed integer for price movement. It appears here and not in the squad
+endpoint.
+
+### Write endpoints, noted but unused
+
+The response links to `game:exchangemarket:placeoffers` (`/offers`), `addplayer`,
+`removeplayer` and `updateRecommendedPrice`. Those are the mutating routes a future
+`execute_bid` will need. Nothing calls them today.
 
 ## How this is wired up
 
