@@ -481,9 +481,92 @@ NEWS_ENTRIES = [
 NEWS_RESPONSE = {"newsList": {"entries": NEWS_ENTRIES, "hasMore": True, "_links": {}}}
 
 
+#: A player detail sheet. `totalPoints` is the dash again, `preferredFoot` and
+#: `countryCode` come back empty, and the recent-average window is blank before any
+#: matches are graded.
+PLAYER_RESPONSE = {
+    "playerId": 1400,
+    "name": "Jugador Detalle",
+    "price": 4_750_000,
+    "totalPoints": "-",
+    "lastPoints": 4,
+    "status": "YELLOW_RED_BANNED",
+    "statusInfo": "",
+    "blogTag": "2026-08-01",
+    "type": "PLAYER",
+    "club": {"id": 5, "name": "Mock FC", "abbreviation": ""},
+    "general": {
+        "playedGames": 34,
+        "ratedGames": 33,
+        "totalGoals": 12,
+        "totalPenalties": 3,
+        "manOfTheMatchAmount": 5,
+    },
+    "average": {
+        "grade": "2.8",
+        "points": "6.4",
+        "lastXMatchdays": {"matchesAmount": 0, "grade": "", "points": ""},
+    },
+    "extendedInfo": {
+        "dob": "1995-03-14",
+        "nationality": "ESP",
+        "countryCode": "",
+        "height": 189,
+        "weight": 91,
+        "preferredFoot": None,
+        "jerseyNumber": 13,
+    },
+    "cards": {"yellow": 4, "yellowRed": 1, "red": 0},
+    "historical": {
+        "points": [
+            {"season": "25/26", "points": "212", "eventId": 1},
+            {"season": "24/25", "points": "198", "eventId": 2},
+        ]
+    },
+    "communityId": int(COMMUNITY_ID),
+    "userId": int(USER_ID),
+    "owner": {"id": int(USER_ID), "name": f"{MANAGER_NAME} "},
+    "buyoutClauseInfo": {
+        "dateOfAvailability": None,
+        "paid": False,
+        "blockDays": 3,
+        "paidBy": 0,
+        "price": 9_500_000,
+    },
+    "nextMatches": [
+        {
+            "matchdayNr": 1,
+            "homeClub": {"id": 5, "name": "Mock FC", "abbreviation": "mck"},
+            "guestClub": {"id": 99, "name": "Rival FC", "abbreviation": "rvl"},
+            "kickoff": "2026-08-15T19:30:00+02:00",
+        },
+        {
+            "matchdayNr": 2,
+            "homeClub": {"id": 99, "name": "Rival FC", "abbreviation": "rvl"},
+            "guestClub": {"id": 5, "name": "Mock FC", "abbreviation": "mck"},
+            "kickoff": "2026-08-22T21:00:00+02:00",
+        },
+    ],
+    "watched": True,
+    # Marketing links the model has no use for.
+    "externalLinks": {
+        "forum": {"name": "Foro", "text": "Habla del jugador", "url": "https://example.invalid/f"},
+        "blog": {"name": "Magazine", "text": "Noticias", "url": "https://example.invalid/b"},
+    },
+    "season": "26/27",
+    "inLineup": "",
+    "purchaseInfo": {"date": "2026-08-07", "price": 4_200_000},
+}
+
+
 @pytest.fixture
 def index_response() -> dict:
     return INDEX_RESPONSE
+
+
+@pytest.fixture
+def player_response() -> dict:
+    return PLAYER_RESPONSE
 
 
 @pytest.fixture

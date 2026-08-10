@@ -401,6 +401,104 @@ class Transfers(BaseModel):
     transfers: list[Transfer] = Field(description="Newest first")
 
 
+class PlayerRecord(BaseModel):
+    """Career totals for the current season."""
+
+    played: int = Field(description="Matches played")
+    rated: int = Field(description="Matches Comunio graded")
+    goals: int = Field(description="Goals scored")
+    penalties: int = Field(description="Penalties scored")
+    man_of_the_match: int = Field(description="Times named man of the match")
+    yellow_cards: int = Field(description="Yellow cards")
+    yellow_red_cards: int = Field(description="Second-yellow dismissals")
+    red_cards: int = Field(description="Straight reds")
+
+
+class PlayerAverages(BaseModel):
+    grade: MissingFloat = Field(default=None, description="Average grade this season")
+    points: MissingFloat = Field(default=None, description="Average Comunio points per match")
+    recent_matches: MissingInt = Field(
+        default=None, description="How many matches the recent averages cover"
+    )
+    recent_grade: MissingFloat = Field(default=None, description="Average grade over those matches")
+    recent_points: MissingFloat = Field(
+        default=None, description="Average points over those matches"
+    )
+
+
+class PlayerProfile(BaseModel):
+    """Biography. Rarely decisive, but cheap and occasionally the tiebreaker."""
+
+    date_of_birth: MissingStr = Field(default=None, description="Date of birth")
+    nationality: MissingStr = Field(default=None, description="Nationality")
+    height: MissingInt = Field(default=None, description="Height in centimetres")
+    weight: MissingInt = Field(default=None, description="Weight in kilograms")
+    preferred_foot: MissingStr = Field(default=None, description="Preferred foot")
+    shirt_number: MissingInt = Field(default=None, description="Shirt number")
+
+
+class SeasonPoints(BaseModel):
+    season: str = Field(description="Season, e.g. '25/26'")
+    points: MissingInt = Field(default=None, description="Points scored that season")
+
+
+class BuyoutClause(BaseModel):
+    """The price at which a player can be taken from their owner without consent."""
+
+    price: MissingInt = Field(
+        default=None,
+        description="What paying the clause would cost. Zero when the league has clauses off.",
+    )
+    paid: bool = Field(description="Whether somebody has already paid it")
+    available_from: MissingStr = Field(
+        default=None, description="When the clause becomes payable, if not yet"
+    )
+    block_days: MissingInt = Field(
+        default=None, description="Days the player is trade-locked after a clause is paid"
+    )
+
+
+class UpcomingMatch(BaseModel):
+    matchday: MissingInt = Field(default=None, description="Matchday number")
+    home: str = Field(description="Home club")
+    away: str = Field(description="Away club")
+    kickoff: datetime = Field(description="Kick-off time, with timezone")
+
+
+class PlayerDetail(BaseModel):
+    player_id: int = Field(description="Player identifier")
+    name: str = Field(description="Player name")
+    club: Club
+    price: int = Field(description="Current market value, in euros")
+
+    status: str = Field(description="Availability code, e.g. ACTIVE or YELLOW_RED_BANNED")
+    status_meaning: MissingStr = Field(
+        default=None, description="Plain-language reading of the status code"
+    )
+    status_info: MissingStr = Field(default=None, description="Comunio's note on the status")
+    available: bool = Field(description="Whether the player can be counted on right now")
+
+    total_points: MissingInt = Field(default=None, description="Points this season")
+    last_points: MissingInt = Field(default=None, description="Points in the last matchday")
+    averages: PlayerAverages
+    record: PlayerRecord
+    history: list[SeasonPoints] = Field(
+        description="Points season by season, oldest first, as Comunio orders them"
+    )
+
+    owner: MissingStr = Field(default=None, description="Manager who owns the player")
+    owner_id: MissingInt = Field(default=None, description="That manager's identifier")
+    purchase_price: MissingInt = Field(
+        default=None, description="What the current owner paid, in euros"
+    )
+    purchased_on: MissingStr = Field(default=None, description="When the owner bought them")
+    buyout_clause: BuyoutClause
+    watched: bool = Field(description="On the signed-in manager's watchlist")
+
+    next_matches: list[UpcomingMatch] = Field(description="Upcoming fixtures, soonest first")
+    profile: PlayerProfile
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 

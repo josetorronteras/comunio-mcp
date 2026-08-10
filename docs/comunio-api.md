@@ -407,6 +407,59 @@ These are **settled prices**. The market says what a player is listed at; this s
 one actually went for. Observed in a single page: 20 transfers between 176,000 and
 12,100,000, totalling nearly 79 million.
 
+## Player detail: `game:tradable`
+
+`/communities/:communityId/users/:userId/players/:playerId` — the `detailedInfo` link that
+squad and market responses hang off every player. About 4 KB of data, same Bearer token as
+everything else.
+
+### Not the web app's player page
+
+The page at `www.comunio.es` fetches a Next.js data route:
+`/_next/data/<buildId>/es/laliga/<club>/<player>.json`. Avoid it:
+
+- `<buildId>` changes on **every deploy** of the web app, so any URL containing it rots.
+- It authenticates with cookies, not the Bearer token.
+- The response is dominated by several thousand UI translation strings; the player data is
+  a small fraction of it.
+
+`game:tradable` returns the same information with none of those problems.
+
+### What it adds over the squad
+
+| Field | Why it matters |
+| --- | --- |
+| `historical.points[]` | Points **season by season**, fourteen of them in one observed response. Oldest first. |
+| `buyoutClauseInfo.price` | What taking the player from their owner without consent would cost. `0` when the league has clauses disabled. |
+| `purchaseInfo` | What the current owner paid, and when |
+| `nextMatches[]` | The next **three** fixtures, where the squad gives one |
+| `general` and `cards` | Goals, penalties, man-of-the-match awards, and the three card counts |
+| `average.lastXMatchdays` | A recent-form window, blank until matches are graded |
+
+Notably absent: `position`. It is in the squad and market payloads but not here.
+
+`externalLinks` carries forum, blog and stats URLs, which are dropped.
+
+## The full `status` vocabulary
+
+The API sends bare codes. The complete set was recovered from the web app's own
+translation table, and there are **thirteen**, not the four the API had happened to show:
+
+```
+ACTIVE            AWAY               DECEASED        GAME_BREAK
+INJURED           MISCELLANEOUS      RED_BANNED      REHABILITATION
+RETIRED           SUSPENDED          WEAKENED        YELLOW_BANNED
+YELLOW_RED_BANNED
+```
+
+Each also has a `WAS_*` form for a state the player has come out of.
+
+Three of them — `YELLOW_BANNED`, `YELLOW_RED_BANNED`, `SUSPENDED` — mean a player cannot be
+fielded and would never have been guessed from a code alone. `comunio/statuses.py` maps
+codes to plain language, handles the `WAS_` prefix by rule, and returns `None` for
+anything unrecognised: it is a lookup, not a validator, and `status` stays a plain string
+everywhere.
+
 ## How this is wired up
 
 | Piece | Responsibility |

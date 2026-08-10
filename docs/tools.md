@@ -16,6 +16,7 @@ the user has already approved.
 | `get_market` | read | — | Every player up for sale, with prices, trend and seller |
 | `get_offers` | read | — | Open offers in both directions, and real spending power |
 | `get_transfers` | read | `limit?` | Completed transfers with the prices actually paid |
+| `get_player` | read | `player_id` | One player's full detail sheet |
 
 ## `ping`
 
@@ -222,3 +223,31 @@ There is no transfers endpoint — these come out of the league news feed, which
 promotional HTML, welcome messages and administration notices. All of that is dropped. A
 single marketing entry in that feed is longer than every transfer in it put together, and
 none of it belongs in a model's context.
+
+## `get_player`
+
+Everything Comunio knows about one player. Ids come from `get_squad`, `get_market` or
+`get_offers`.
+
+Beyond what the squad already gives:
+
+| Field | Contents |
+| --- | --- |
+| `history` | Points season by season, oldest first — fourteen seasons in one real response |
+| `record` | Matches played and rated, goals, penalties, man-of-the-match awards, all three card counts |
+| `averages` | Season grade and points, plus a recent-form window |
+| `buyout_clause` | What taking the player from their owner without consent would cost. `0` when the league has clauses off. |
+| `purchase_price`, `purchased_on` | What the current owner paid |
+| `next_matches` | The next three fixtures, where the squad gives one |
+| `profile` | Date of birth, nationality, height, weight, foot, shirt number |
+
+Annotated `read_only_hint=True`.
+
+### Computed server-side
+
+- **`status_meaning`** spells out the code. There are thirteen of them, and
+  `YELLOW_RED_BANNED` is not something to leave an agent to interpret.
+- **`available`** is true only for `ACTIVE`, so nothing has to know which of the other
+  twelve codes mean the player cannot be fielded.
+
+`position` is not in this payload — it comes from `get_squad` or `get_market`.
