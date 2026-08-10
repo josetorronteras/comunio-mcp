@@ -5,6 +5,7 @@ import httpx2
 import pytest
 
 from comunio_mcp.comunio.actions import (
+    change_bid,
     list_on_market,
     parse_listing_result,
     place_bid,
@@ -459,5 +460,102 @@ def test_a_bid_is_not_retried_after_a_401():
 
     with pytest.raises(httpx2.HTTPStatusError):
         _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
+
+    assert len(handler.writes) == 1
+
+
+CHANGE_OK = {
+    "status": "OK",
+    "response": [
+        {
+            "offerid": 9000003,
+            "tradableid": 3871,
+            "price": 810_001,
+            "type": "CHANGE",
+            "status": "OK",
+            "message": "",
+            "processImmediately": False,
+        }
+    ],
+    "opponentIds": "",
+}
+
+
+def _changing_api(**kwargs):
+    return FakeApi(
+        add_response=kwargs.pop("add_response", CHANGE_OK),
+        offers=kwargs.pop(
+            "offers",
+            {**_offers_payload(offerer_id=int(USER_ID)), "credit": 29_475_000},
+        ),
+        **kwargs,
+    )
+
+
+def test_a_bid_is_changed_with_the_documented_body():
+    handler = _changing_api()
+
+    result = _run(handler, lambda s, c: change_bid(s, c, 9000003, 810_001))
+
+    request = handler.writes[0]
+    assert request.method == "POST"
+    assert request.url.path.endswith("/offers")
+    assert json.loads(request.content) == {
+        "offers": [
+            {"price": 810_001, "type": "CHANGE", "offerid": 9000003, "tradableid": 3871}
+        ]
+    }
+    assert result.ok is True
+    assert result.price == 810_001
+
+
+def test_the_player_comes_from_the_offer_not_from_an_argument():
+    # A change cannot end up pointing at a different player than the bid it edits.
+    handler = _changing_api()
+
+    result = _run(handler, lambda s, c: change_bid(s, c, 9000003, 810_001))
+
+    assert result.player_id == 3871
+    assert result.player == "Defensa Objetivo"
+
+
+def test_changing_an_incoming_offer_is_refused_before_anything_is_sent():
+    handler = _changing_api(
+        offers={**_offers_payload(offerer_id=1), "credit": 29_475_000}
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        _run(handler, lambda s, c: change_bid(s, c, 9000003, 810_001))
+
+    assert "can be changed" in str(excinfo.value)
+    assert handler.writes == []
+
+
+def test_changing_beyond_credit_is_refused_before_anything_is_sent():
+    handler = _changing_api(
+        offers={**_offers_payload(offerer_id=int(USER_ID)), "credit": 500_000}
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        _run(handler, lambda s, c: change_bid(s, c, 9000003, 810_001))
+
+    assert "exceeds the available credit" in str(excinfo.value)
+    assert handler.writes == []
+
+
+def test_changing_an_unknown_offer_is_refused_before_anything_is_sent():
+    handler = _changing_api()
+
+    with pytest.raises(ValueError):
+        _run(handler, lambda s, c: change_bid(s, c, 12345, 810_001))
+
+    assert handler.writes == []
+
+
+def test_a_change_is_not_retried_after_a_401():
+    handler = _changing_api(unauthorized_first=True)
+
+    with pytest.raises(httpx2.HTTPStatusError):
+        _run(handler, lambda s, c: change_bid(s, c, 9000003, 810_001))
 
     assert len(handler.writes) == 1
