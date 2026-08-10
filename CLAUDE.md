@@ -47,7 +47,11 @@ which layer a new tool belongs to, ask before implementing it.
   - Prefer stacking sequential PRs over a single large one.
   - Refactors travel in their own PR, separate from behaviour changes.
 - Do not commit or push unless the user asks for it.
-- Never commit Comunio credentials. They live in `.env`, which is git-ignored.
+- Never commit Comunio credentials. They live in `.env`, which is git-ignored; `.env.example`
+  documents the variables with empty values.
+- **Never log or return a token.** Not in tool output, not in error messages, not in debug logs.
+  A failed login can echo the credentials back in its body, so only the HTTP status is safe to
+  surface.
 
 ## Docker first
 
@@ -93,13 +97,13 @@ Written so far:
 | [`docs/mcp-protocol.md`](docs/mcp-protocol.md) | MCP `2026-07-28` notes filtered by what affects this project |
 | [`docs/setup.md`](docs/setup.md) | Building the image and connecting it to an MCP client |
 | [`docs/development.md`](docs/development.md) | Layout, dev commands, running the server by hand, SDK gotchas |
+| [`docs/comunio-api.md`](docs/comunio-api.md) | Comunio endpoints, authentication, headers, quirks and unknowns |
 
 Planned, created as each part is implemented — link them here and from `README.md` when they land:
 
 | Document | Contents |
 | --- | --- |
 | `docs/tools.md` | MCP tool catalogue: parameters, response, layer and effects |
-| `docs/comunio-api.md` | Comunio endpoints used, authentication, formats, quirks and limits |
 
 Criteria:
 

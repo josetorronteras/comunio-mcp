@@ -51,9 +51,10 @@ Then ask your assistant to call `ping`. Full instructions, including Claude Desk
 - [Setup](docs/setup.md) — building the image and connecting it to an MCP client
 - [Development](docs/development.md) — layout, dev commands, SDK gotchas
 - [Architecture](docs/architecture.md) — design decisions and the reasoning behind them
+- [Comunio API](docs/comunio-api.md) — authentication, headers and what is still unmapped
 - [MCP protocol notes](docs/mcp-protocol.md) — the parts of MCP `2026-07-28` that shape this project
 
-Still to be written: the tool catalogue and the Comunio API notes.
+Still to be written: the tool catalogue.
 
 Contributor conventions are in [CLAUDE.md](CLAUDE.md).
 
