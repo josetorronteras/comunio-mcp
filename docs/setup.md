@@ -56,6 +56,50 @@ To check without a client at all, see the direct JSON-RPC recipe in
 
 ## Credentials
 
-None yet — no tool talks to Comunio so far. When they do, credentials will be passed as
-environment variables (the documented approach for stdio servers) and the client
-configuration will need `-e` flags. They never go in the image or in git.
+Your Comunio account is passed to the container as environment variables — the documented
+approach for stdio servers. They never go in the image or in git.
+
+| Variable | Required | Default |
+| --- | --- | --- |
+| `COMUNIO_USERNAME` | yes | — |
+| `COMUNIO_PASSWORD` | yes | — |
+| `COMUNIO_TIMEZONE` | no | `Europe/Madrid` |
+| `COMUNIO_USER_AGENT` | no | `comunio-mcp/0.1.0` |
+
+Without them the server still starts and `ping` still works; only the tools that reach
+Comunio fail, with a message saying what is missing.
+
+To check the credentials work before wiring anything up:
+
+```bash
+cp .env.example .env    # fill it in
+docker compose run --rm auth-check
+```
+
+It logs in, refreshes, and reports how long the token lasts. It prints no token.
+
+### Passing them to the client
+
+```bash
+claude mcp add comunio -- docker run -i --rm \
+  -e COMUNIO_USERNAME=you \
+  -e COMUNIO_PASSWORD=secret \
+  comunio-mcp
+```
+
+For Claude Desktop, add them to the `args` array the same way, or use `--env-file` with a
+path to your `.env`:
+
+```json
+{
+  "mcpServers": {
+    "comunio": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "--env-file", "/absolute/path/to/.env", "comunio-mcp"]
+    }
+  }
+}
+```
+
+The `--env-file` form keeps the password out of the config file. Details of the
+authentication flow are in [comunio-api.md](comunio-api.md).
