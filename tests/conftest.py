@@ -322,9 +322,86 @@ MARKET_RESPONSE = {
 }
 
 
+def _offer(
+    offer_id,
+    player_id,
+    name,
+    position,
+    *,
+    quoted,
+    price,
+    offerer_id,
+    offerer_name,
+    partner_id,
+    partner_name,
+    status="ACTIVE",
+):
+    return {
+        "id": offer_id,
+        "type": "SALE",
+        "tradable": {
+            "id": player_id,
+            "name": name,
+            "club": {"id": 5, "name": "Mock FC", "_links": {}},
+            "position": position,
+            "trend": 0,
+            "quotedPrice": quoted,
+            "recommendedPrice": quoted,
+            "status": status,
+            "statusInfo": "",
+            "points": 0,
+            "purchasePrice": 0,
+            # A boolean sent as a string, unlike `watched` elsewhere.
+            "onWatchlist": "false",
+            "owner": {"id": partner_id, "name": partner_name, "_links": {}},
+            "displayName": None,
+            "_links": {"photo": {"href": "https://api.comunio.es/x/photo"}},
+        },
+        "user": {"id": offerer_id, "name": offerer_name, "_links": {}},
+        # Comunio pads some manager names with a trailing space.
+        "tradingPartner": {"id": partner_id, "name": f"{partner_name} ", "_links": {}},
+        "price": price,
+        "datecreated": "2026-08-10T04:24:03+02:00",
+        "datechanged": "2026-08-10T04:24:03+02:00",
+        "state": "PENDING",
+        "exchange": False,
+        "tradablesOffered": [],
+        "tradablesDemanded": [],
+        "_links": {"game:offer:decline": {"href": "https://api.comunio.es/x/offers/1"}},
+    }
+
+
+#: `credit` is deliberately different from the budget in the index fixture: the league's
+#: dynamic credit factor means they are not the same number.
+OFFERS_RESPONSE = {
+    "credit": 29_475_000,
+    "items": [
+        # Above market value.
+        _offer(9000001, 1876, "Medio Uno", "midfielder", quoted=430_000, price=439_000,
+               offerer_id=1, offerer_name="Computer",
+               partner_id=int(USER_ID), partner_name=MANAGER_NAME),
+        # Below market value — worth flagging, an agent should not accept blindly.
+        _offer(9000002, 4038, "Medio Dos", "midfielder", quoted=3_630_000, price=3_528_400,
+               offerer_id=1, offerer_name="Computer",
+               partner_id=int(USER_ID), partner_name=MANAGER_NAME),
+        # An offer the manager made for somebody else's player.
+        _offer(9000003, 5001, "Delantero Rival", "striker", quoted=1_000_000, price=1_200_000,
+               offerer_id=int(USER_ID), offerer_name=MANAGER_NAME,
+               partner_id=30000001, partner_name="Rival Uno"),
+    ],
+    "hasMore": False,
+    "_links": {"game:placeOffers": {"href": "https://api.comunio.es/x/offers"}},
+}
+
+
 @pytest.fixture
 def index_response() -> dict:
     return INDEX_RESPONSE
+
+
+@pytest.fixture
+def offers_response() -> dict:
+    return OFFERS_RESPONSE
 
 
 @pytest.fixture

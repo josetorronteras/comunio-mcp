@@ -286,6 +286,79 @@ class Market(BaseModel):
     listings: list[MarketListing]
 
 
+class OfferPlayer(BaseModel):
+    """The player an offer is about. A leaner view than the market's."""
+
+    id: int = Field(description="Player identifier")
+    name: str = Field(description="Player name")
+    club: Club
+    position: str = Field(description="keeper, defender, midfielder or striker")
+    status: str = Field(description="ACTIVE, or WEAKENED and similar when unavailable")
+    status_info: MissingStr = Field(
+        default=None, validation_alias="statusInfo", description="Why the player is unavailable"
+    )
+    quoted_price: int = Field(
+        validation_alias="quotedPrice", description="Current market value, in euros"
+    )
+    recommended_price: SentinelInt = Field(
+        default=None, validation_alias="recommendedPrice", description="Comunio's suggested price"
+    )
+    trend: int = Field(description="Price movement, negative when falling")
+
+    model_config = {"populate_by_name": True}
+
+
+class Offer(BaseModel):
+    offer_id: int = Field(description="Offer identifier, needed to accept, decline or withdraw")
+    type: str = Field(description="What kind of trade, e.g. SALE")
+    state: str = Field(description="Where the offer stands, e.g. PENDING")
+    direction: str = Field(
+        description="'incoming' when somebody wants the manager's player, 'outgoing' when the "
+        "manager is bidding for someone else's"
+    )
+
+    player: OfferPlayer
+    price: int = Field(description="Amount offered, in euros")
+    premium: int = Field(
+        description="Offer minus the player's quoted price. Negative means below market value."
+    )
+    premium_pct: float = Field(description="The same difference as a percentage of quoted price")
+
+    offered_by: str = Field(description="Who made the offer")
+    offered_by_id: int = Field(description="Identifier of who made the offer")
+    from_computer: bool = Field(description="The offer comes from Comunio itself, not a manager")
+    counterparty: str = Field(description="The manager on the other side of the offer")
+
+    is_exchange: bool = Field(
+        validation_alias="exchange", description="Whether players are being swapped as well"
+    )
+    created_at: datetime = Field(description="When the offer was made")
+    changed_at: datetime = Field(description="When it was last modified")
+
+    model_config = {"populate_by_name": True}
+
+
+class OffersSummary(BaseModel):
+    total: int = Field(description="Offers open right now")
+    incoming: int = Field(description="Offers for the manager's own players")
+    outgoing: int = Field(description="Offers the manager has made")
+    from_computer: int = Field(description="Offers made by Comunio itself")
+    below_quoted: int = Field(description="Incoming offers below the player's market value")
+    incoming_total: int = Field(
+        description="What accepting every incoming offer would bring in, in euros"
+    )
+
+
+class Offers(BaseModel):
+    credit: int = Field(
+        description="What the manager can actually spend. Not the same as budget: the league's "
+        "credit factor lets it exceed cash in hand."
+    )
+    has_more: bool = Field(description="Whether Comunio is holding back further pages")
+    summary: OffersSummary
+    offers: list[Offer]
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 

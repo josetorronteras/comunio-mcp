@@ -14,6 +14,7 @@ the user has already approved.
 | `get_squad` | read | — | Every player, with availability, scoring, prices and lineup state |
 | `get_standings` | read | — | The league table, with rival squad values and who is broke |
 | `get_market` | read | — | Every player up for sale, with prices, trend and seller |
+| `get_offers` | read | — | Open offers in both directions, and real spending power |
 
 ## `ping`
 
@@ -147,3 +148,35 @@ Annotated `read_only_hint=True`.
 `from_computer` comes from a reserved seller id of `1`, and `is_mine` from the session's
 manager id. Neither should be left to an agent to recognise: one is a magic number, the
 other is name matching.
+
+## `get_offers`
+
+Open transfer offers, and the number that actually bounds a bid.
+
+**`credit`** is what the manager can spend. It is *not* the `budget` from `get_account`:
+the league's dynamic credit factor lets it exceed cash in hand. Anything sizing a bid
+should use this.
+
+Per offer: `offer_id`, `type`, `state`, `price`, `created_at`, `changed_at`, `is_exchange`,
+the `player`, and:
+
+| Field | Meaning |
+| --- | --- |
+| `direction` | `incoming` when somebody wants the manager's player, `outgoing` when they are bidding |
+| `premium`, `premium_pct` | Price against the player's market value. **Negative means below value.** |
+| `offered_by`, `from_computer` | Who made the offer, and whether it was Comunio itself |
+| `counterparty` | The manager on the other side |
+
+`summary` gives `total`, `incoming`, `outgoing`, `from_computer`, `below_quoted`, and
+`incoming_total` — what accepting every incoming offer would bring in.
+
+Annotated `read_only_hint=True`. Accepting, declining and withdrawing are deliberately not
+available here.
+
+### Computed server-side
+
+- **`direction`** — nothing in the payload states it; it comes from comparing the offer's
+  author with the signed-in manager.
+- **`premium` and `premium_pct`** — an offer is not automatically a good one. Real
+  responses have carried premiums from -2.8% to +3.8% in the same batch.
+- **`below_quoted`** — how many incoming offers are worth less than the player.
