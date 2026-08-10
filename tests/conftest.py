@@ -201,6 +201,58 @@ SQUAD_RESPONSE = {
 }
 
 
+def _standing(manager_id, name, *, total=0, last="-", live=None, team_value=0, negative=False):
+    return {
+        "totalPoints": total,
+        "lastPoints": last,
+        "totalPerennialPoints": 0,
+        "livePoints": live,
+        "playersPossiblyScoredAmount": 0,
+        "_links": {"user": {"href": f"https://api.comunio.es/users/{manager_id}"}},
+        "_embedded": {
+            "user": {
+                "id": manager_id,
+                "name": name,
+                "blocked": False,
+                "type": None,
+                "leagueId": None,
+                "leagueName": None,
+                "negativeBudget": negative,
+                "position": 0,
+                "firstName": "Real Name",
+                "login": "secret-login",
+                "_links": {"self": {"href": f"https://api.comunio.es/users/{manager_id}"}},
+            },
+            "teamInfo": {
+                "teamValue": team_value,
+                "tactic": "",
+                "seasons": None,
+                "badges": {"entries": [], "_links": {}},
+                "_links": {"game:squad": {"href": "https://api.comunio.es/x/squad"}},
+            },
+        },
+    }
+
+
+#: Rival managers are invented. `position` is 0 for everyone, as it is before the season
+#: starts, so rank has to come from the order of the list. `lastPoints` is a dash.
+STANDINGS_RESPONSE = {
+    "id": "total",
+    "items": [
+        _standing(30000001, "Rival Uno", total=42, last="7", team_value=54_750_000),
+        _standing(30000002, "Rival Dos", total=35, team_value=48_420_000, negative=True),
+        _standing(int(USER_ID), MANAGER_NAME, total=30, last="3", team_value=42_500_000),
+        _standing(30000003, "Rival Tres", team_value=26_000_000),
+    ],
+    "restartItems": None,
+    "historicalItems": None,
+    "key": None,
+    "secondHalfStarted": False,
+    "_links": {"self": {"href": "https://api.comunio.es/x/standings"}},
+    "_embedded": {"formerEventsWithPoints": {"events": []}},
+}
+
+
 @pytest.fixture
 def index_response() -> dict:
     return INDEX_RESPONSE
@@ -209,3 +261,8 @@ def index_response() -> dict:
 @pytest.fixture
 def squad_response() -> dict:
     return SQUAD_RESPONSE
+
+
+@pytest.fixture
+def standings_response() -> dict:
+    return STANDINGS_RESPONSE

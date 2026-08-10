@@ -12,6 +12,7 @@ the user has already approved.
 | `ping` | read | — | Server name, version and UTC time |
 | `get_account` | read | — | Budget, squad totals, formation and league rules |
 | `get_squad` | read | — | Every player, with availability, scoring, prices and lineup state |
+| `get_standings` | read | — | The league table, with rival squad values and who is broke |
 
 ## `ping`
 
@@ -91,3 +92,29 @@ Comunio encodes "no data" five different ways in this one endpoint. The model re
 | `averagePoints: "0"` or `3.5` | String in one row, number in another | `float` |
 | `recommendedprice: -1` | Comunio has no recommendation | `null` |
 | `pos: ""` | Not in the lineup | `null` |
+
+## `get_standings`
+
+The league table, best first.
+
+Per row: `rank`, `is_me`, `manager` and `manager_id`, `total_points`, `last_points`,
+`live_points`, `perennial_points`, `players_possibly_scoring`, `team_value` and
+`negative_budget`.
+
+Two of those are market intelligence rather than trivia. **`negative_budget`** says which
+rivals cannot outbid you right now. **`manager_id`** is what a rival-squad lookup will
+need.
+
+Annotated `read_only_hint=True`.
+
+### Computed server-side
+
+- **`rank`** — the payload's own `position` field is `0` for everyone, so rank is derived
+  from the order Comunio returns.
+- **`is_me`** — marks the signed-in manager's row, so the agent does not have to work out
+  which one it is by matching names.
+
+### Third-party data
+
+Rival rows in the raw response carry `login`, `firstName` and account flags belonging to
+other people. Only the display name, the figures and the id survive.

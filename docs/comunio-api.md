@@ -194,18 +194,44 @@ to avoid.
 ## Standings: `game:standings`
 
 **Requires query parameters**: `?period=total&wpe=true`. Without them the response is not
-JSON at all, which is why a naive `GET` on the link fails. `Session.link()` does not
-handle query parameters yet — that has to be added before this endpoint can be used.
+JSON at all, which is why a bare `GET` on the link fails in a confusing way. `Session.link()`
+does not need to know about this: parameters go to the client, which passes them straight
+to httpx.
 
-The payload is HAL with `_embedded`, a shape the index does not use: each row carries
-`_embedded.user` and `_embedded.teamInfo`. Two fields stand out for market strategy:
-`negativeBudget` per rival, and each rival's `teamValue` with a `game:squad` link to
-inspect their squad.
+`period=total` is the season table; what other values exist is unknown. `wpe` is
+undocumented — the web app always sends it and the endpoint needs it.
 
-Watch out: `lastPoints` is `"-"` here too, and before the season starts every `position`
-and `totalPoints` is `0`, so rank probably has to be derived from array order. Rival
-managers' display names are personal data belonging to third parties; fixtures must invent
-them.
+### `_embedded`, a shape the index does not use
+
+Each row keeps the figures at the top and nests the manager and their team underneath:
+
+```
+items[]
+├── totalPoints, lastPoints, livePoints, totalPerennialPoints, playersPossiblyScoredAmount
+└── _embedded
+    ├── user       → id, name, negativeBudget, position, plus login/firstName/flags
+    └── teamInfo   → teamValue, tactic, badges, and a game:squad link for that rival
+```
+
+The model flattens both into a single row.
+
+### Rank is not in the payload
+
+Every `position` is `0`, so the field is useless and rank comes from the order Comunio
+sends. Observed before the season starts: with all managers on zero points the order
+follows squad value, so the ordering is doing tie-breaking of its own.
+
+`lastPoints` is `"-"` here too, and `livePoints` is null outside a live matchday.
+
+### Third-party data
+
+Rival rows carry `login`, `firstName` and account flags belonging to other people. Only
+what a table needs survives: display name, the figures, and the id needed to fetch their
+squad. Fixtures invent the rivals.
+
+Two fields are genuinely useful for market strategy: **`negativeBudget`** tells you which
+rivals cannot outbid you, and each rival's **`teamValue`** comes with a link to inspect
+their squad.
 
 ## How this is wired up
 

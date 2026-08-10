@@ -114,6 +114,38 @@ class AccountSnapshot(BaseModel):
     community: Community
 
 
+class StandingsRow(BaseModel):
+    """One manager in the league table.
+
+    Third-party data is kept to what a standings table needs: a display name, the figures,
+    and the id required to look up their squad. Login, real name and account flags are
+    dropped.
+    """
+
+    rank: int = Field(description="Position in the table, 1 is top")
+    is_me: bool = Field(description="True for the signed-in manager's own row")
+    manager_id: int = Field(description="Manager identifier, used to fetch their squad")
+    manager: str = Field(description="Manager display name")
+    total_points: int = Field(description="Points this season")
+    last_points: MissingInt = Field(default=None, description="Points in the last matchday")
+    live_points: MissingInt = Field(
+        default=None, description="Points being scored right now, null outside a matchday"
+    )
+    perennial_points: int = Field(description="Points carried across seasons")
+    players_possibly_scoring: int = Field(
+        description="Players of theirs who may still score in the current matchday"
+    )
+    team_value: int = Field(description="Value of their squad, in euros")
+    negative_budget: bool = Field(
+        description="Their budget is in the red, so they cannot outbid anyone"
+    )
+
+
+class Standings(BaseModel):
+    period: str = Field(description="Period the table covers, e.g. 'total'")
+    rows: list[StandingsRow] = Field(description="Managers, best first")
+
+
 class Club(BaseModel):
     id: int = Field(description="Club identifier")
     name: str = Field(description="Club name")
