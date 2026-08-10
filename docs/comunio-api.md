@@ -473,19 +473,28 @@ cause silent, expensive bugs.
 | Change asking price | PUT | `…/exchangemarket/recommendedprice` | `{"playerId":N,"newPrice":N}` |
 | Unlist a player | POST | `…/exchangemarket/removeplayer` | `{"tradableIds":[N]}` |
 | Place a bid | POST | `…/offers` | `{"offers":[{"price":N,"tradableid":N,"type":"NEW"}]}` |
+| Change a bid | POST | `…/offers` | `{"offers":[{"offerid":N,"tradableid":N,"price":N,"type":"CHANGE"}]}` |
 | Accept an offer | POST | `…/offers` | `{"offers":[{"offerid":N,"tradableid":N,"price":N,"type":"ACCEPT"}]}` |
 | Withdraw an offer | PUT | `…/offers/{offerId}` | `{}` |
 
-### One route, three meanings
+### One route, four meanings
 
-`POST …/offers` places a bid, accepts an offer and — presumably — declines one, told apart
-only by `type`. Observed values: **`NEW`** for a bid and **`ACCEPT`** for accepting. The
-value for declining has not been captured; the offers payload links
-`game:offer:decline` and `game:offer:withdraw` at the same `…/offers/{offerId}` path,
-where a `PUT` with an empty body withdraws.
+`POST …/offers` places a bid, changes one, accepts an offer and — presumably — declines
+one, told apart only by `type`:
+
+| `type` | Meaning | `offerid` in the request | Applied |
+| --- | --- | --- | --- |
+| `NEW` | Place a bid | no, and the response returns the new one | queued |
+| `CHANGE` | Change an existing bid's price | yes | queued |
+| `ACCEPT` | Accept an offer for your player | yes | **immediately** |
+| *not captured* | Decline an offer | — | — |
+
+The value for declining is unknown. The offers payload links `game:offer:decline` and
+`game:offer:withdraw` at the same `…/offers/{offerId}` path, where a `PUT` with an empty
+body withdraws.
 
 So the most dangerous action in the API shares a route with the most routine one, and a
-wrong `type` is a valid request.
+wrong `type` is still a well-formed request. Nothing distinguishes them but a string.
 
 ### The asymmetry that matters most
 
@@ -500,7 +509,8 @@ accepting has to be stronger than the one before bidding, because there is nothi
 it with.
 
 A bid returns the new `offerid` in its response — that is the only way to get the handle
-needed to withdraw it later.
+needed to change or withdraw it later. `CHANGE` and `ACCEPT` both require that handle;
+only `NEW` goes without one.
 
 ### Two levels of status, and only one of them is trustworthy
 
@@ -547,7 +557,8 @@ the retry must not cover them.
 
 ### Still unknown
 
-- The `type` value for declining an offer.
+- The `type` value for declining an offer. Three of the four are known: `NEW`, `CHANGE`,
+  `ACCEPT`.
 - Whether `decline` and `withdraw`, which share a path, differ by method or by who owns
   the offer.
 - What `remaining: 36` counts in the `addplayer` response. Market listings carry their own
