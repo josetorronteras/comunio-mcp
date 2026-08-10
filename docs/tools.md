@@ -379,7 +379,16 @@ reach it. That is why it is annotated `destructive_hint=false`.
 
 The credit check reads `credit` from `get_offers`, **not** `budget` from `get_account`.
 The league's credit factor makes them different numbers, and sizing a bid against the
-budget understates what is possible while sizing it against nothing risks a rejection.
+budget understates what is possible.
+
+It also subtracts the manager's **other open bids**, which Comunio's own `credit` does
+not. Measured directly: placing a bid of 170,001 left `credit` reported as the same
+29,749,200 it was before. Without accounting for them, five bids of ten million each
+would every one pass a check against thirty million of credit. `credit_committed` says how
+much is already promised, and `credit_after` assumes every open bid wins.
+
+Changing a bid excludes the bid being changed, since the old amount is replaced rather
+than added to.
 
 Each refusal is tested by asserting no request left the process, not by the wording of the
 error.

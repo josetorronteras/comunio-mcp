@@ -571,8 +571,14 @@ class BidResult(BaseModel):
     applied_immediately: bool = Field(
         description="False for a bid: it waits for the transfer round and can be withdrawn"
     )
+    credit_committed: MissingInt = Field(
+        default=None,
+        description="Already tied up in the manager's other open bids, in euros",
+    )
     credit_after: MissingInt = Field(
-        default=None, description="Spending power left if this bid wins, in euros"
+        default=None,
+        description="Spending power left if every open bid wins, in euros. Accounts for "
+        "the other bids, which Comunio's own `credit` figure does not.",
     )
 
 
