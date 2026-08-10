@@ -372,6 +372,10 @@ class SquadSummary(BaseModel):
 
 class Squad(BaseModel):
     owner: str | None = Field(default=None, description="Manager the squad belongs to")
+    owner_id: int | None = Field(default=None, description="That manager's identifier")
+    is_mine: bool = Field(
+        default=False, description="Whether this is the signed-in manager's own squad"
+    )
     tactic: str = Field(description="Formation the lineup is set up for, e.g. '442'")
     summary: SquadSummary
     players: list[SquadPlayer]

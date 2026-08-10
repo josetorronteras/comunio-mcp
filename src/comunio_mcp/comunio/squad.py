@@ -17,18 +17,30 @@ SQUAD_LINK = "game:squad"
 ACTIVE = "ACTIVE"
 
 
-async def fetch_squad(session: Session, client: ComunioClient) -> Squad:
-    url = await session.link(SQUAD_LINK)
-    return parse_squad(await client.get(url))
+async def fetch_squad(
+    session: Session, client: ComunioClient, manager_id: int | None = None
+) -> Squad:
+    """Fetch a squad. Defaults to the signed-in manager's own.
+
+    The endpoint takes a user id, so a rival's squad is the same call with a different
+    one. There is nothing to hide behind: prices, injuries and squad depth are all
+    visible.
+    """
+    me = (await session.info()).user_id
+    url = await session.link(SQUAD_LINK, userId=str(manager_id) if manager_id else me)
+    return parse_squad(await client.get(url), me=me)
 
 
-def parse_squad(payload: Any) -> Squad:
+def parse_squad(payload: Any, me: str | None = None) -> Squad:
     items = payload["items"]
     players = [_parse_player(item) for item in items]
-    owner = items[0].get("owner", {}).get("name") if items else None
+    owner = (items[0].get("owner") or {}) if items else {}
+    owner_id = owner.get("id")
 
     return Squad(
-        owner=owner,
+        owner=owner.get("name"),
+        owner_id=owner_id,
+        is_mine=me is not None and str(owner_id) == str(me),
         tactic=payload.get("tactic", ""),
         summary=_summarise(players),
         players=players,

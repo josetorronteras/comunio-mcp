@@ -4,18 +4,19 @@ from datetime import datetime
 import pytest
 
 from comunio_mcp.comunio.squad import parse_squad
-from tests.conftest import MANAGER_NAME
+from tests.conftest import MANAGER_NAME, RIVAL_NAME, USER_ID
 
 
 @pytest.fixture
 def squad(squad_response):
-    return parse_squad(squad_response)
+    return parse_squad(squad_response, me=USER_ID)
 
 
 def test_every_player_is_parsed(squad):
     assert len(squad.players) == 8
     assert squad.tactic == "442"
     assert squad.owner == MANAGER_NAME
+    assert squad.is_mine is True
 
 
 def test_a_dash_means_no_points_yet(squad):
@@ -101,8 +102,35 @@ def test_link_clutter_is_dropped(squad):
 
 
 def test_an_empty_squad_does_not_crash():
-    squad = parse_squad({"items": [], "tactic": ""})
+    squad = parse_squad({"items": [], "tactic": ""}, me=USER_ID)
 
     assert squad.players == []
     assert squad.owner is None
     assert squad.summary.total == 0
+
+
+def test_a_rival_squad_is_parsed_and_not_marked_as_mine(rival_squad_response):
+    squad = parse_squad(rival_squad_response, me=USER_ID)
+
+    assert squad.owner == RIVAL_NAME
+    assert squad.is_mine is False
+    assert len(squad.players) == 4
+
+
+def test_a_rival_has_no_recommended_prices(rival_squad_response):
+    # Comunio only suggests a price for players you own; for everyone else it sends -1.
+    squad = parse_squad(rival_squad_response, me=USER_ID)
+
+    assert all(player.recommended_price is None for player in squad.players)
+
+
+def test_injured_is_a_distinct_status_from_weakened(rival_squad_response):
+    squad = parse_squad(rival_squad_response, me=USER_ID)
+
+    unavailable = [p for p in squad.players if p.status != "ACTIVE"]
+
+    # Four values seen so far: ACTIVE, WEAKENED, INJURED, RED_BANNED. The set is open,
+    # so status stays a plain string rather than a closed enum.
+    assert [p.status for p in unavailable] == ["INJURED", "RED_BANNED"]
+    assert unavailable[0].status_info == "Fractura de peroné"
+    assert squad.summary.unavailable == 2

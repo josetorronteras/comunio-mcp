@@ -11,7 +11,7 @@ the user has already approved.
 | --- | --- | --- | --- |
 | `ping` | read | — | Server name, version and UTC time |
 | `get_account` | read | — | Budget, squad totals, formation and league rules |
-| `get_squad` | read | — | Every player, with availability, scoring, prices and lineup state |
+| `get_squad` | read | `manager_id?` | Every player in a squad — the manager's own, or a rival's |
 | `get_standings` | read | — | The league table, with rival squad values and who is broke |
 | `get_market` | read | — | Every player up for sale, with prices, trend and seller |
 | `get_offers` | read | — | Open offers in both directions, and real spending power |
@@ -77,8 +77,15 @@ The richest endpoint, and what the lineup and market work builds on.
 **`summary`** — `total`, `lined_up`, `substitutes`, `unavailable`, `on_market` and
 `by_position`. Computed server-side so nobody has to recount a list to check a formation.
 
-**`tactic`** and **`owner`** at the top level. `owner` appears once rather than repeated on
-all fifteen players.
+**`tactic`**, **`owner`**, **`owner_id`** and **`is_mine`** at the top level. The owner
+appears once rather than repeated on every player.
+
+### Inspecting a rival
+
+Pass `manager_id`, taken from `get_standings`, to read somebody else's squad. Rival squads
+are fully visible: prices, injuries, depth, and their lineup once set. The one thing
+missing is `recommended_price`, which Comunio only provides for your own players and sends
+as `null` for everyone else.
 
 Annotated `read_only_hint=True`.
 
@@ -94,6 +101,9 @@ Comunio encodes "no data" five different ways in this one endpoint. The model re
 | `averagePoints: "0"` or `3.5` | String in one row, number in another | `float` |
 | `recommendedprice: -1` | Comunio has no recommendation | `null` |
 | `pos: ""` | Not in the lineup | `null` |
+
+`status` is an open set — `ACTIVE`, `WEAKENED`, `INJURED` and `RED_BANNED` seen so far —
+so it stays a string. `summary.unavailable` counts everything that is not `ACTIVE`.
 
 ## `get_standings`
 
