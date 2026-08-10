@@ -9,6 +9,7 @@ from comunio_mcp.comunio.actions import (
     parse_listing_result,
     set_asking_price,
     unlist_from_market,
+    withdraw_bid,
 )
 from comunio_mcp.comunio.auth import ComunioAuth
 from comunio_mcp.comunio.client import ComunioClient
@@ -24,7 +25,10 @@ OK_RESPONSE = {"status": "OK", "notPlaced": [], "purchasePrices": {"3354": 0}, "
 class FakeApi:
     """Answers login, the index, and the addplayer endpoint."""
 
-    def __init__(self, *, add_response=None, add_status=200, unauthorized_first=False) -> None:
+    def __init__(
+        self, *, add_response=None, add_status=200, unauthorized_first=False, offers=None
+    ) -> None:
+        self.offers = offers or {"credit": 0, "items": []}
         self.writes: list[httpx2.Request] = []
         self.add_response = OK_RESPONSE if add_response is None else add_response
         self.add_status = add_status
@@ -44,6 +48,8 @@ class FakeApi:
                     "refresh_token": f"refresh-{self._logins}",
                 },
             )
+        if request.url.path.endswith("/offers") and request.method == "GET":
+            return httpx2.Response(200, json=self.offers)
         if request.url.path == "/":
             return httpx2.Response(
                 200,
@@ -54,7 +60,11 @@ class FakeApi:
                         "game:exchangemarket": {
                             "href": "https://api.comunio.es/communities/"
                             f"{COMMUNITY_ID}/users/{USER_ID}/exchangemarket"
-                        }
+                        },
+                        "game:readOffers": {
+                            "href": "https://api.comunio.es/communities/"
+                            f"{COMMUNITY_ID}/users/{USER_ID}/offers"
+                        },
                     },
                 },
             )
@@ -220,4 +230,79 @@ def test_a_price_of_zero_is_refused_before_the_put():
     with pytest.raises(ValueError):
         _run(handler, lambda s, c: set_asking_price(s, c, 3354, 0))
 
+    assert handler.writes == []
+
+
+def _offers_payload(*, offerer_id, offer_id=9000003):
+    """One open offer, made by `offerer_id`, for a player owned by the other party."""
+    return {
+        "credit": 1_000_000,
+        "items": [
+            {
+                "id": offer_id,
+                "type": "SALE",
+                "tradable": {
+                    "id": 3871,
+                    "name": "Defensa Objetivo",
+                    "club": {"id": 5, "name": "Mock FC"},
+                    "position": "defender",
+                    "trend": 0,
+                    "quotedPrice": 810_000,
+                    "recommendedPrice": 810_000,
+                    "status": "ACTIVE",
+                    "statusInfo": "",
+                    "points": 0,
+                    "onWatchlist": "false",
+                },
+                "user": {"id": offerer_id, "name": "Somebody"},
+                "tradingPartner": {"id": 30000001, "name": "Rival Uno"},
+                "price": 810_000,
+                "datecreated": "2026-08-10T04:24:03+02:00",
+                "datechanged": "2026-08-10T04:24:03+02:00",
+                "state": "PENDING",
+                "exchange": False,
+            }
+        ],
+        "hasMore": False,
+    }
+
+
+def test_a_bid_is_withdrawn_with_an_empty_body():
+    handler = FakeApi(
+        add_response={"status": "OK"}, offers=_offers_payload(offerer_id=int(USER_ID))
+    )
+
+    result = _run(handler, lambda s, c: withdraw_bid(s, c, 9000003))
+
+    request = handler.writes[0]
+    assert request.method == "PUT"
+    assert request.url.path.endswith("/offers/9000003")
+    assert json.loads(request.content) == {}
+    assert result.ok is True
+    # The result names what was withdrawn, taken from the offer that was looked up.
+    assert result.player == "Defensa Objetivo"
+    assert result.price == 810_000
+
+
+def test_withdrawing_an_incoming_offer_is_refused_before_any_request():
+    # `game:offer:withdraw` and `game:offer:decline` share a path, so the same request on
+    # somebody else's offer would decline it. Comunio cannot tell them apart for us.
+    handler = FakeApi(add_response={"status": "OK"}, offers=_offers_payload(offerer_id=1))
+
+    with pytest.raises(ValueError) as excinfo:
+        _run(handler, lambda s, c: withdraw_bid(s, c, 9000003))
+
+    assert "not one of their bids" in str(excinfo.value)
+    assert handler.writes == []
+
+
+def test_withdrawing_an_unknown_offer_is_refused_before_any_request():
+    handler = FakeApi(
+        add_response={"status": "OK"}, offers=_offers_payload(offerer_id=int(USER_ID))
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        _run(handler, lambda s, c: withdraw_bid(s, c, 12345))
+
+    assert "No open offer" in str(excinfo.value)
     assert handler.writes == []

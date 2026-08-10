@@ -539,6 +539,15 @@ class AskingPriceResult(BaseModel):
     price: int = Field(description="The asking price that was requested, in euros")
 
 
+class WithdrawResult(BaseModel):
+    """What came back from withdrawing one of the manager's own bids."""
+
+    ok: bool = Field(description="Whether Comunio accepted the withdrawal")
+    offer_id: int = Field(description="The offer that was withdrawn")
+    player: MissingStr = Field(default=None, description="Who the withdrawn bid was for")
+    price: MissingInt = Field(default=None, description="What the withdrawn bid offered")
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 
