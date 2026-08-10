@@ -25,6 +25,9 @@ can tell them apart and ask before running one.
 | `withdraw_bid` | **write** | `offer_id` | Pulls one of your bids out of the running |
 | `accept_offer` | **write, irreversible** | `offer_id` | Sells one of your players |
 | `set_lineup` | **write** | `tactic`, players by position | Sets the formation and starting eleven |
+| `get_watchlist` | read | — | Players being kept an eye on |
+| `watch_player` | write | `player_id` | Adds a player to the watchlist |
+| `unwatch_player` | write | `player_id` | Removes a player from the watchlist |
 
 ## `ping`
 
@@ -496,3 +499,33 @@ by asserting nothing left the process.
 
 Annotated `idempotent_hint=true` — sending the same lineup twice leaves the same lineup —
 and `destructive_hint=false`, since it can be set again until the matchday starts.
+
+## The watchlist: `get_watchlist`, `watch_player`, `unwatch_player`
+
+A shortlist, not a commitment. Watching a player changes nothing about the squad, the
+budget or any offer, which is why the two writes are annotated `destructive_hint=false`
+and `idempotent_hint=true` — watching an already watched player leaves them watched.
+
+### `owner` is the useful field
+
+An entry carries `owner: null` when **no manager holds that player**. That is a real
+distinction: an unowned player can only ever arrive through the market, while one held by
+a rival needs a deal or a buyout clause. It is surfaced per player as `unowned` and
+counted in the response.
+
+### Three shapes on one path
+
+| | Method | Body |
+| --- | --- | --- |
+| Read | `GET …/watchlist` | — |
+| Add | `POST …/watchlist/players/{id}` | **empty** `{}` |
+| Remove | `DELETE …/watchlist/players/{id}` | **also `{}`** |
+
+A `DELETE` that carries a JSON body is unusual enough to be worth stating rather than
+rediscovering. `ComunioClient.delete` exists for it, and like `post` and `put` it is never
+retried.
+
+### Spelling, again
+
+This endpoint sends `quotedprice` — the squad's spelling, not the market's `quotedPrice`.
+That is now the third variant of the same concept across four endpoints.

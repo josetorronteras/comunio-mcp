@@ -624,6 +624,44 @@ class LineupResult(BaseModel):
     )
 
 
+class WatchedPlayer(BaseModel):
+    """A player on the watchlist."""
+
+    id: int = Field(description="Player identifier")
+    name: str = Field(description="Player name")
+    club: str = Field(description="Their club")
+    position: str = Field(description="Where they play")
+
+    status: str = Field(description="Availability code")
+    status_info: MissingStr = Field(default=None, description="Why they are unavailable")
+    disabled: bool = Field(description="Whether the league has this player disabled")
+
+    quoted_price: int = Field(description="Market value, in euros")
+    trend: MissingInt = Field(default=None, description="Price movement, negative when falling")
+    points: MissingInt = Field(default=None, description="Season points")
+    last_points: MissingInt = Field(default=None, description="Points in the last matchday")
+
+    owner: MissingStr = Field(
+        default=None, description="Manager who owns them, or null when nobody does"
+    )
+    owner_id: MissingInt = Field(default=None, description="That manager's identifier")
+    unowned: bool = Field(
+        description="True when no manager holds them, so they can only arrive via the market"
+    )
+
+
+class Watchlist(BaseModel):
+    total: int = Field(description="How many players are being watched")
+    unowned: int = Field(description="How many of them no manager holds")
+    players: list[WatchedPlayer]
+
+
+class WatchResult(BaseModel):
+    ok: bool = Field(description="Whether Comunio accepted the change")
+    player_id: int = Field(description="Player added to or removed from the watchlist")
+    watching: bool = Field(description="Whether the player is now being watched")
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 
