@@ -185,6 +185,33 @@ of these to `null`. Treating `-1` as a price or `"-"` as a number would poison a
 arithmetic downstream, which is precisely the kind of error the deterministic layer exists
 to avoid.
 
+### Rival squads: same endpoint, different id
+
+`/users/:userId/squad` takes any manager's id, so a rival's squad is the same call.
+Everything is visible — prices, injuries, depth, and their lineup and formation once they
+have set one. Two differences:
+
+- `recommendedprice` is `-1` for every player. Comunio only suggests a price for players
+  you own.
+- A rival who has not set a lineup yet shows `linedup: false` throughout, which is
+  indistinguishable from having no lineup at all.
+
+Squad values cross-check against `teamValue` in the standings.
+
+### `status` is an open set
+
+Four values seen so far, and there is no reason to think that is all of them:
+
+| Value | Meaning |
+| --- | --- |
+| `ACTIVE` | Available |
+| `WEAKENED` | Carrying a knock, `statusInfo` names it |
+| `INJURED` | Injured, `statusInfo` names it |
+| `RED_BANNED` | Suspended after a red card |
+
+Modelled as a plain string rather than a closed enum, so a fifth value does not break
+validation. `summary.unavailable` counts everything that is not `ACTIVE`.
+
 ### Other observations
 
 - `owner` is repeated identically on every player. The model hoists it to the top level.

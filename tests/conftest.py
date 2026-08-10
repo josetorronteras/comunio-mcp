@@ -394,9 +394,43 @@ OFFERS_RESPONSE = {
 }
 
 
+RIVAL_ID = 30000001
+RIVAL_NAME = "Rival Uno"
+
+
+def _rival_player(player_id, name, position, *, status="ACTIVE", status_info=""):
+    player = _player(player_id, name, position, status=status, status_info=status_info)
+    # Comunio gives no price recommendation for players you do not own, and a rival's
+    # lineup is never populated here.
+    player["recommendedprice"] = -1
+    player["owner"] = {"id": RIVAL_ID, "name": RIVAL_NAME}
+    return player
+
+
+#: A rival's squad: same endpoint, different user id.
+RIVAL_SQUAD_RESPONSE = {
+    "items": [
+        _rival_player(2001, "Rival Portero", "keeper"),
+        _rival_player(2002, "Rival Defensa", "defender"),
+        # A status the manager's own squad has not shown: INJURED, distinct from WEAKENED.
+        _rival_player(2003, "Rival Roto", "striker", status="INJURED",
+                      status_info="Fractura de peroné"),
+        # A fourth status: suspended after a red card.
+        _rival_player(2004, "Rival Sancionado", "midfielder", status="RED_BANNED"),
+    ],
+    "tactic": "442",
+    "_links": {"self": {"href": f"https://api.comunio.es/users/{RIVAL_ID}/squad"}},
+}
+
+
 @pytest.fixture
 def index_response() -> dict:
     return INDEX_RESPONSE
+
+
+@pytest.fixture
+def rival_squad_response() -> dict:
+    return RIVAL_SQUAD_RESPONSE
 
 
 @pytest.fixture
