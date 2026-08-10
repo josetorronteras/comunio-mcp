@@ -82,6 +82,23 @@ What `execute_*` does when the client does **not** support `elicitation`: refuse
 back to the `proposal_id` check plus the host dialog. To be decided — it needs checking which
 clients actually implement `elicitation` against spec `2026-07-28`.
 
+### What the write API forces on top
+
+The market write endpoints have now been captured and verified (see
+[comunio-api.md](comunio-api.md)). Three of their properties constrain the execute layer
+before a line of it is written:
+
+- **Accepting an offer is instant and irreversible** (`processImmediately: true`), while a
+  bid is queued until the transfer round and can be withdrawn. The confirmation before an
+  accept therefore has to be stronger than the one before a bid — there is nothing to undo
+  it with.
+- **Responses carry a per-item status inside an outer one.** An outer `OK` with a failed
+  item inside is possible, so an `execute_*` must report what each item actually did.
+  Reporting success from the outer field is how a tool claims to have placed a bid it did
+  not place.
+- **Writes must never be auto-retried.** The client retries once on a 401, which is safe
+  for `GET` and would double-apply a bid.
+
 ### Consequences
 
 - Persistence is a hard requirement from day one, not a later optimisation.

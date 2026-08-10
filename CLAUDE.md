@@ -87,6 +87,11 @@ Docker. Rationale in [`docs/architecture.md`](docs/architecture.md) (Decision 3)
   `mcp.server.context`, which fails at import) and reaches the app through
   `ctx.request_context.lifespan_context`.
 - **No path is hardcoded.** Routes come from the `_links` index via `session.link("game:squad")`.
+- **Never auto-retry a write.** The 401 retry in `ComunioClient` is safe for `GET` only; retrying a
+  `POST` or `PUT` would place a bid twice.
+- **No `execute_*` tool until proposals are persisted.** Decision 2 requires an execution to apply a
+  stored proposal the user has seen; a write tool without that barrier is the thing the design
+  exists to prevent.
 - **Models are allowlists.** Declare only the fields worth exposing; the raw responses carry
   email, invitation codes and other data that must never reach the model's context.
 
