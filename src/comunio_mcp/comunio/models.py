@@ -548,6 +548,29 @@ class WithdrawResult(BaseModel):
     price: MissingInt = Field(default=None, description="What the withdrawn bid offered")
 
 
+class BidResult(BaseModel):
+    """What actually happened to a bid.
+
+    Read from the **per-item** status inside the response, never the outer one: Comunio
+    can report overall success with the bid rejected inside.
+    """
+
+    ok: bool = Field(description="Whether this particular bid was accepted by Comunio")
+    message: MissingStr = Field(default=None, description="Comunio's reason, when it gives one")
+    offer_id: MissingInt = Field(
+        default=None, description="The offer Comunio created. Needed to change or withdraw it."
+    )
+    player_id: int = Field(description="Player the bid is for")
+    player: MissingStr = Field(default=None, description="That player's name")
+    price: int = Field(description="Amount bid, in euros")
+    applied_immediately: bool = Field(
+        description="False for a bid: it waits for the transfer round and can be withdrawn"
+    )
+    credit_after: MissingInt = Field(
+        default=None, description="Spending power left if this bid wins, in euros"
+    )
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 

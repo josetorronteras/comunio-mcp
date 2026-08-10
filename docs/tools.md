@@ -20,6 +20,7 @@ can tell them apart and ask before running one.
 | `list_player_on_market` | **write** | `player_id`, `price` | Puts one of your players up for sale |
 | `unlist_player_from_market` | **write** | `player_id` | Takes one of your players back off sale |
 | `set_asking_price` | **write** | `player_id`, `price` | Changes what you are asking for a listed player |
+| `place_bid` | **write** | `player_id`, `price` | Bids for a player on the market |
 | `withdraw_bid` | **write** | `offer_id` | Pulls one of your bids out of the running |
 
 ## `ping`
@@ -353,3 +354,41 @@ than echoing an id back.
 
 Annotated `destructive_hint=false`: the bid is gone, but a new one can be placed while the
 market is open.
+
+## `place_bid`
+
+**Commits the manager's money.** Bids for a player on the market.
+
+The bid does not take effect straight away: it waits for the next transfer round, which
+`get_market` reports as `closes_at`. Until then `change_bid` and `withdraw_bid` can still
+reach it. That is why it is annotated `destructive_hint=false`.
+
+### Three refusals before anything is sent
+
+| Refused when | Why |
+| --- | --- |
+| The player is not on the market | Nothing to bid on |
+| The player is one of the manager's own listings | Not a move |
+| The amount exceeds available **credit** | It cannot be paid |
+
+The credit check reads `credit` from `get_offers`, **not** `budget` from `get_account`.
+The league's credit factor makes them different numbers, and sizing a bid against the
+budget understates what is possible while sizing it against nothing risks a rejection.
+
+Each refusal is tested by asserting no request left the process, not by the wording of the
+error.
+
+### Read `ok`, never the outer status
+
+```json
+{"status": "OK", "response": [{"status": "ERROR", "message": "Credit exceeded"}]}
+```
+
+Comunio reports the request as processed while rejecting the bid inside it. `ok` and
+`message` come from the per-item status. `credit_after` only moves when the bid was
+actually accepted.
+
+### The offer id is the handle
+
+`offer_id` in the result is the only way to reach the bid afterwards. Without keeping it,
+a bid just placed can be neither changed nor withdrawn.
