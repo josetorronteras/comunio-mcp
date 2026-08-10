@@ -6,7 +6,8 @@ import pytest
 
 from comunio_mcp.comunio.auth import ComunioAuth
 from comunio_mcp.comunio.client import ComunioClient
-from comunio_mcp.comunio.lineup import LineupError, set_lineup, slot_plan
+from comunio_mcp.comunio.lineup import LineupError, best_lineup, set_lineup, slot_plan
+from comunio_mcp.comunio.models import Club, SquadPlayer
 from comunio_mcp.comunio.session import Session
 from comunio_mcp.config import Settings
 from tests.conftest import COMMUNITY_ID, USER_ID
@@ -231,3 +232,116 @@ def test_someone_outside_the_squad_is_refused():
 
     assert "Not in the squad" in str(excinfo.value)
     assert handler.writes == []
+
+
+def _player(player_id, name, position, *, average_points=0.0, status="ACTIVE"):
+    return SquadPlayer(
+        id=player_id,
+        name=name,
+        club=Club(id=1, name="Mock FC"),
+        position=position,
+        status=status,
+        points=None,
+        last_points=None,
+        average_points=average_points,
+        matchday_points=None,
+        motm=False,
+        linedup=False,
+        substitute=False,
+        quoted_price=1000,
+        on_market=False,
+        is_exchangeable=False,
+        has_accepted_offers=False,
+        watched=False,
+    )
+
+
+def test_best_lineup_fills_a_fixed_tactic_ranked_by_average_points():
+    keeper = _player(1, "Portero", "keeper", average_points=5)
+    defenders = [
+        _player(2, "Defensa Uno", "defender", average_points=9),
+        _player(3, "Defensa Dos", "defender", average_points=8),
+        _player(4, "Defensa Tres", "defender", average_points=7),
+        _player(5, "Defensa Roto", "defender", average_points=1, status="INJURED"),
+    ]
+    midfielders = [
+        _player(6, "Medio Uno", "midfielder", average_points=10),
+        _player(7, "Medio Dos", "midfielder", average_points=9),
+        _player(8, "Medio Roto", "midfielder", average_points=2, status="INJURED"),
+    ]
+    striker = _player(9, "Delantero Uno", "striker", average_points=12)
+
+    plan = best_lineup([keeper, *defenders, *midfielders, striker], tactic="442")
+
+    fielded_ids = {player.id for _, _, player in plan.fielded}
+    # All four defenders used, including the injured one: only three are ACTIVE.
+    assert fielded_ids >= {2, 3, 4, 5}
+    # All three midfielders used: even with the injured one, the formation needs four.
+    assert fielded_ids >= {6, 7, 8}
+    assert plan.tactic == "442"
+    # 2 strikers needed, only 1 exists; 4 midfielders needed, only 3 exist.
+    assert plan.empty_slots == 2
+    assert plan.penalty_points == 8
+    assert plan.estimated_points == 63.0
+    assert plan.payload == {
+        "tactic": "442",
+        "keeper": 1,
+        "defenders": [2, 3, 4, 5],
+        "midfielders": [6, 7, 8],
+        "strikers": [9],
+    }
+
+
+def test_best_lineup_prefers_active_players_over_injured_ones():
+    active = _player(1, "Sano", "midfielder", average_points=1)
+    injured = _player(2, "Roto", "midfielder", average_points=99, status="INJURED")
+
+    plan = best_lineup(
+        [_player(10, "Portero", "keeper"), active, injured], tactic="442"
+    )
+
+    midfielder_ids = [p.id for _, position, p in plan.fielded if position == "midfielder"]
+    assert midfielder_ids[0] == active.id  # ranked first despite the lower average
+
+
+def test_best_lineup_auto_selects_the_formation_with_no_empty_slots():
+    keeper = _player(1, "Portero", "keeper", average_points=5)
+    defenders = [_player(i, f"Defensa {i}", "defender", average_points=10 - i) for i in (2, 3, 4)]
+    midfielders = [
+        _player(i, f"Medio {i}", "midfielder", average_points=10 - i) for i in (5, 6, 7, 8, 9)
+    ]
+    strikers = [_player(10, "Delantero Uno", "striker", average_points=12),
+                _player(11, "Delantero Dos", "striker", average_points=11)]
+
+    # Exactly matches 352 (3 defenders, 5 midfielders, 2 strikers): no formation with more
+    # slots for any position could do better, since there is nobody left to fill them.
+    plan = best_lineup([keeper, *defenders, *midfielders, *strikers])
+
+    assert plan.tactic == "352"
+    assert plan.empty_slots == 0
+
+
+def test_best_lineup_leaves_a_slot_empty_when_nobody_is_left_to_fill_it():
+    plan = best_lineup([_player(1, "Portero", "keeper")], tactic="343")
+
+    assert plan.empty_slots == 10
+    assert plan.penalty_points == 40
+    assert plan.payload == {
+        "tactic": "343", "keeper": 1, "defenders": [], "midfielders": [], "strikers": [],
+    }
+
+
+def test_best_lineup_ties_break_on_player_id_for_reproducibility():
+    lower_id = _player(1, "A", "striker", average_points=5)
+    higher_id = _player(2, "B", "striker", average_points=5)
+
+    first = best_lineup([_player(3, "K", "keeper"), lower_id, higher_id], tactic="442")
+    second = best_lineup([_player(3, "K", "keeper"), lower_id, higher_id], tactic="442")
+
+    assert first.payload == second.payload
+    assert first.payload["strikers"][0] == higher_id.id
+
+
+def test_best_lineup_refuses_an_unknown_formation():
+    with pytest.raises(LineupError, match="not a formation"):
+        best_lineup([_player(1, "Portero", "keeper")], tactic="4231")

@@ -24,6 +24,8 @@ can tell them apart and ask before running one.
 | `withdraw_bid` | **write** | `offer_id` | Pulls one of your bids out of the running |
 | `accept_offer` | **write, irreversible** | `offer_id` | Sells one of your players |
 | `set_lineup` | **write** | `tactic`, players by position | Sets the formation and starting eleven |
+| `propose_lineup` | **propose** | `tactic?` | Works out the best starting eleven and stores it as a proposal |
+| `execute_lineup` | **execute** | `proposal_id` | Applies a lineup proposal already shown to the user |
 | `get_watchlist` | read | — | Players being kept an eye on |
 | `watch_player` | write | `player_id` | Adds a player to the watchlist |
 | `unwatch_player` | write | `player_id` | Removes a player from the watchlist |
@@ -504,6 +506,75 @@ by asserting nothing left the process.
 
 Annotated `idempotent_hint=true` — sending the same lineup twice leaves the same lineup —
 and `destructive_hint=false`, since it can be set again until the matchday starts.
+
+## `propose_lineup`
+
+**The first `propose_*` tool.** Works out the best starting eleven from the manager's
+squad and stores it — it never calls `set_lineup`'s write endpoint, and nothing about the
+manager's team changes until `execute_lineup` is called with the `proposal_id` it returns.
+
+### Why this exists
+
+`set_lineup` takes players by position and does nothing to pick them: a caller building a
+lineup by hand can leave slots empty without noticing, which is exactly what happened
+building the fixture this tool replaces — a hand-set 343 lost 20 points to empty slots that
+`propose_lineup` would have filled. Decision 2 requires the picking itself to be
+deterministic code, not model judgement, so it lives here rather than in a prompt.
+
+### How a slot is filled
+
+Each position's candidates are ranked by **availability first, then season average
+points**, and the formation's slots are filled from the top. Positions are independent — a
+player cannot fill another position's slot — so taking the top N by rank per position is
+provably optimal for the points total, the same reasoning `set_lineup`'s own validation
+already relies on.
+
+A player who is not `ACTIVE` (injured, suspended, and similar) is used **only when there
+are not enough available players** for that position — preferred over leaving the slot
+empty, since an empty slot has a known, fixed cost (`set_lineup`'s four points) while even
+an unavailable player might score something.
+
+### The tactic is optional
+
+Pass `tactic` to force one of the five formations. Leave it out and all five are evaluated —
+each scored as total points minus the empty-slot penalty — and the best one wins. Ties are
+broken by fewest empty slots, then by formation name, so the same squad always proposes the
+same lineup.
+
+### Reading the result
+
+`fielded` lists who would take each slot, with the `average_points` they were ranked by and
+their `status` at proposal time. `estimated_points` and `estimated_penalty_points` are what
+the formation is projected to score, net of any empty slots. `summary` is the same
+information as prose — show it to the user before calling `execute_lineup`; nothing should
+be applied without that.
+
+`expires_at` is 30 minutes out. A proposal not executed by then must be requested again.
+
+Annotated `read_only_hint=false`: it does not fit the `get_` convention the other read
+tools use, even though it never reaches a Comunio write endpoint.
+
+## `execute_lineup`
+
+**Applies a lineup proposal the user has already seen.** The only argument is
+`proposal_id`, taken from `propose_lineup` — never a fresh set of players, so what gets
+sent to Comunio can never differ from what was shown.
+
+### It calls `set_lineup`, not a copy of it
+
+The proposal's `payload` is exactly `set_lineup`'s keyword arguments (`tactic`, `keeper`,
+`defenders`, `midfielders`, `strikers`), computed once when the proposal was made. Execution
+calls that same function unchanged — the lineup logic exists in exactly one place.
+
+### Claimed once
+
+`ProposalStore.claim()` fails the call if the id is unknown, belongs to a different kind of
+proposal, was already executed, or expired. The check is a single conditional database
+update, so two concurrent executions of the same proposal cannot both win — the second
+loses the race rather than setting the lineup twice.
+
+Confirm with the user before calling this — it replaces the current lineup. Check `ok` in
+the result rather than assuming success, same as `set_lineup`.
 
 ## The watchlist: `get_watchlist`, `watch_player`, `unwatch_player`
 

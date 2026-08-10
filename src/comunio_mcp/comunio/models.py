@@ -635,6 +635,34 @@ class LineupResult(BaseModel):
     )
 
 
+class LineupProposalSlot(BaseModel):
+    slot: int = Field(description="Comunio's slot number, 1 to 11")
+    position: str = Field(description="What that slot plays")
+    player_id: int = Field(description="Player picked for it")
+    player: str = Field(description="That player's name")
+    average_points: MissingFloat = Field(
+        default=None, description="Season average points — the metric the pick was ranked by"
+    )
+    status: str = Field(description="Their availability at proposal time")
+
+
+class LineupProposal(BaseModel):
+    """A candidate starting eleven, not yet applied. Nothing changes until `execute_lineup`
+    is called with `proposal_id`."""
+
+    proposal_id: str = Field(description="Pass this to execute_lineup to apply the proposal")
+    tactic: str = Field(description="Formation the proposal was built for, chosen or given")
+    fielded: list[LineupProposalSlot] = Field(description="Who would end up in which slot")
+    empty_slots: int = Field(description="Slots the squad could not fill")
+    estimated_points: float = Field(description="Sum of average points across the fielded starters")
+    estimated_penalty_points: int = Field(
+        description="What empty slots would cost, by Comunio's own stated rule of four "
+        "points each"
+    )
+    summary: str = Field(description="Human-readable description to show the user before executing")
+    expires_at: datetime = Field(description="The proposal must be executed before this time")
+
+
 class WatchedPlayer(BaseModel):
     """A player on the watchlist."""
 
