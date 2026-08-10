@@ -6,6 +6,7 @@ from comunio_mcp.context import lifespan
 from comunio_mcp.metadata import SERVER_NAME, SERVER_VERSION
 from comunio_mcp.tools import (
     account,
+    list_on_market,
     market,
     offers,
     ping,
@@ -20,9 +21,11 @@ mcp = MCPServer(
     version=SERVER_VERSION,
     lifespan=lifespan,
     instructions=(
-        "Read and operate on a Comunio fantasy football team. Tools are layered: "
-        "get_* only read, propose_* compute a candidate move without sending anything, "
-        "and execute_* apply a proposal the user has already approved."
+        "Read and operate on a Comunio fantasy football team. Tools whose name starts "
+        "with get_ only read and are always safe to call. Every other tool changes the "
+        "manager's team or spends their money: confirm the details with the user before "
+        "calling one, and report what the result says actually happened rather than "
+        "assuming success."
     ),
 )
 
@@ -34,3 +37,6 @@ standings.register(mcp)
 market.register(mcp)
 offers.register(mcp)
 transfers.register(mcp)
+
+# Actions that change something.
+list_on_market.register(mcp)

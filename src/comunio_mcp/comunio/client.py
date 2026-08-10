@@ -59,7 +59,22 @@ class ComunioClient:
         response = await self._request("GET", target, **kwargs)
         return response.json()
 
+    async def post(self, target: str, *, json: Any, **kwargs: Any) -> Any:
+        """POST a JSON body. **Never retried** — see `_request`."""
+        response = await self._send("POST", target, json=json, **kwargs)
+        response.raise_for_status()
+        return response.json()
+
+    async def put(self, target: str, *, json: Any, **kwargs: Any) -> Any:
+        """PUT a JSON body. **Never retried** — see `_request`."""
+        response = await self._send("PUT", target, json=json, **kwargs)
+        response.raise_for_status()
+        return response.json()
+
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx2.Response:
+        # Only GET goes through here. Writes call `_send` directly and take the 401 as a
+        # failure, because a write that reached Comunio and lost its response would be
+        # applied twice by a retry: a bid placed twice, a player listed twice.
         response = await self._send(method, path, **kwargs)
 
         if response.status_code == 401:

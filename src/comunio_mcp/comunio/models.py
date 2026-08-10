@@ -499,6 +499,22 @@ class PlayerDetail(BaseModel):
     profile: PlayerProfile
 
 
+class ListingResult(BaseModel):
+    """What actually happened when players were put on the market.
+
+    `addplayer` is a batch endpoint, so partial success is normal: `placed` and `rejected`
+    are read from the response rather than inferred from the outer `status`.
+    """
+
+    placed: list[int] = Field(description="Player ids that are now listed")
+    rejected: list[int] = Field(description="Player ids Comunio refused to list")
+    remaining: MissingInt = Field(
+        default=None,
+        description="Comunio's own counter from the response. What it counts is not "
+        "documented and does not match the countdown on market listings.",
+    )
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 
