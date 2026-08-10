@@ -355,6 +355,58 @@ Each offer links `game:offer:decline` and `game:offer:withdraw`, and the collect
 `game:placeOffers`. Those are what a future `execute_bid` and its siblings will use.
 Nothing calls them.
 
+## Transfers, hidden inside the news: `game:news`
+
+There is no transfers endpoint. Completed transfers arrive as **one entry per day** in the
+league news feed, mixed in with promotional HTML, welcome messages and administration
+notices.
+
+Only `TRANSACTION_TRANSFER` entries are read; the rest is discarded rather than passed to
+a model. That is not tidiness — a single marketing entry in this feed is longer than every
+transfer in it put together.
+
+### Parameters, measured rather than copied
+
+The web app sends `group=true&originaltypes=true&start=0&limit=50&type=HIDDEN_NEWS`. What
+each one actually does:
+
+| Parameter | Effect |
+| --- | --- |
+| `originaltypes=true` | **Load-bearing.** Without it types collapse to coarse ones — `TRANSACTION` instead of `TRANSACTION_TRANSFER` — and entries cannot be told apart. |
+| `group=true` | Nests entries under date keys instead of a flat `entries` list. More work to undo, so it is not sent. |
+| `start`, `limit` | Pagination. **The server caps a page at 20** however large a limit is requested; `start` works as expected. |
+| `type=HIDDEN_NEWS` | Measured to change nothing at all. Not sent. |
+
+Filtering by type is not available server-side: passing `type=TRANSACTION_TRANSFER` returns
+everything anyway.
+
+### Shape
+
+A transfer entry's `message` is bucketed by kind:
+
+```
+message
+├── FROM_COMPUTER []  → bought from Comunio
+└── TO_COMPUTER   []  → sold back to Comunio
+    each: tradable {id,name}, from {id,name}, to {id,name}, price,
+          and immediateTransferTime on sales that did not wait for the round
+```
+
+Only those two buckets have been observed, in a league whose market has so far been
+computer-only. Manager-to-manager deals presumably arrive under a third key, so the parser
+**iterates whatever buckets are present** rather than naming them — losing a transfer
+silently would be worse than not knowing the key's name.
+
+`message` is polymorphic across entry types: `{text, links}` for administration entries,
+a full lineup object for `LINEUP_CHANGED`, `{type, matchday, eventId}` for prediction
+notices. Only the transfer shape is modelled.
+
+### Why it is worth reading
+
+These are **settled prices**. The market says what a player is listed at; this says what
+one actually went for. Observed in a single page: 20 transfers between 176,000 and
+12,100,000, totalling nearly 79 million.
+
 ## How this is wired up
 
 | Piece | Responsibility |

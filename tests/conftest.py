@@ -423,9 +423,72 @@ RIVAL_SQUAD_RESPONSE = {
 }
 
 
+def _move(player_id, name, from_id, from_name, to_id, to_name, price, immediate=None):
+    move = {
+        "tradable": {"id": player_id, "name": name},
+        "from": {"id": from_id, "name": from_name},
+        "to": {"id": to_id, "name": to_name},
+        "price": price,
+    }
+    if immediate:
+        move["immediateTransferTime"] = immediate
+    return move
+
+
+#: News entries as the flat `entries` list, which is what `originaltypes=true` without
+#: `group=true` returns. Only one of these is a transfer; the rest is the noise the feed
+#: is mostly made of, including a marketing entry far longer than any transfer.
+NEWS_ENTRIES = [
+    {
+        "id": 1,
+        "date": "2026-08-10T04:30:27+02:00",
+        "type": "TRANSACTION_TRANSFER",
+        "title": "Fichajes",
+        "message": {
+            "FROM_COMPUTER": [
+                _move(7001, "Fichaje Uno", 1, "Computer", 30000001, "Rival Uno", 7_100_000),
+                _move(7002, "Fichaje Dos", 1, "Computer", int(USER_ID), MANAGER_NAME, 1_650_020),
+            ],
+            "TO_COMPUTER": [
+                _move(7003, "Venta Uno", 30000002, "Rival Dos ", 1, "Computer",
+                      659_100, immediate="06:52"),
+            ],
+        },
+    },
+    {
+        "id": 2,
+        "date": "2026-08-09T04:31:23+02:00",
+        "type": "SYSTEM_ADMINISTRATION",
+        "title": "¡Participa en el sorteo!",
+        "message": {"text": "<p><strong>" + "marketing " * 200 + "</strong></p>", "links": []},
+    },
+    {
+        "id": 3,
+        "date": "2026-08-08T13:59:00+02:00",
+        "type": "LINEUP_CHANGED",
+        "title": "La alineación se ha cambiado",
+        "message": {"lineup": {"keeper": [], "defender": []}, "tactic": "442"},
+    },
+    {
+        "id": 4,
+        "date": "2026-08-07T10:07:44+02:00",
+        "type": "MEMBER_ADMINISTRATION",
+        "title": "¡Nuevo miembro!",
+        "message": {"text": "Alguien se ha unido a la comunidad.", "links": []},
+    },
+]
+
+NEWS_RESPONSE = {"newsList": {"entries": NEWS_ENTRIES, "hasMore": True, "_links": {}}}
+
+
 @pytest.fixture
 def index_response() -> dict:
     return INDEX_RESPONSE
+
+
+@pytest.fixture
+def news_entries() -> list[dict]:
+    return NEWS_ENTRIES
 
 
 @pytest.fixture
