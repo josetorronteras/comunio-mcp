@@ -12,7 +12,13 @@ Everything here mutates. Two rules apply to all of it:
 from typing import Any
 
 from comunio_mcp.comunio.client import ComunioClient
-from comunio_mcp.comunio.models import AskingPriceResult, ListingResult, UnlistResult
+from comunio_mcp.comunio.models import (
+    AskingPriceResult,
+    ListingResult,
+    UnlistResult,
+    WithdrawResult,
+)
+from comunio_mcp.comunio.offers import OFFERS_LINK, OUTGOING, fetch_offers
 from comunio_mcp.comunio.session import Session
 
 MARKET_LINK = "game:exchangemarket"
@@ -92,3 +98,36 @@ async def set_asking_price(
 def parse_asking_price_result(payload: Any, *, player_id: int, price: int) -> AskingPriceResult:
     # The response is a bare boolean rather than an object, unlike every other action.
     return AskingPriceResult(ok=payload is True, player_id=player_id, price=price)
+
+
+async def withdraw_bid(session: Session, client: ComunioClient, offer_id: int) -> WithdrawResult:
+    """Withdraw one of the manager's own pending bids.
+
+    Guarded on purpose. `game:offer:withdraw` and `game:offer:decline` point at the *same*
+    path, so the same request on somebody else's offer would decline it instead of
+    withdrawing the manager's own. Comunio gives no way to tell which is which from the
+    id, so the offer is looked up first and anything that is not an outgoing bid is
+    refused before a request is sent.
+    """
+    offers = await fetch_offers(session, client)
+    match = next((offer for offer in offers.offers if offer.offer_id == offer_id), None)
+
+    if match is None:
+        raise ValueError(
+            f"No open offer with id {offer_id}. Check get_offers for the current ones."
+        )
+    if match.direction != OUTGOING:
+        raise ValueError(
+            f"Offer {offer_id} is an offer for the manager's own player, not one of their "
+            "bids. Withdrawing is only for bids the manager made."
+        )
+
+    url = f"{await session.link(OFFERS_LINK)}/{offer_id}"
+    payload = await client.put(url, json={})
+
+    return WithdrawResult(
+        ok=payload.get("status") == OK,
+        offer_id=offer_id,
+        player=match.player.name,
+        price=match.price,
+    )

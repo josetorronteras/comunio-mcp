@@ -20,6 +20,7 @@ can tell them apart and ask before running one.
 | `list_player_on_market` | **write** | `player_id`, `price` | Puts one of your players up for sale |
 | `unlist_player_from_market` | **write** | `player_id` | Takes one of your players back off sale |
 | `set_asking_price` | **write** | `player_id`, `price` | Changes what you are asking for a listed player |
+| `withdraw_bid` | **write** | `offer_id` | Pulls one of your bids out of the running |
 
 ## `ping`
 
@@ -330,3 +331,25 @@ is `payload is True` and anything else counts as failure.
 This is also the only write action annotated `idempotent_hint=true`: setting the same price
 twice leaves the same price. The others make no such claim, because their responses give no
 way to verify it.
+
+## `withdraw_bid`
+
+**Changes what the manager has committed to.** Pulls one of their own pending bids.
+
+Ids come from `get_offers`. Only offers whose `direction` is `outgoing` can be withdrawn.
+
+### Guarded, because Comunio cannot tell the two apart
+
+`game:offer:withdraw` and `game:offer:decline` point at the **same path**, and the request
+is identical. Sent against somebody else's offer it would *decline* that offer rather than
+withdraw one of the manager's bids — two very different outcomes from the same call.
+
+Nothing in an offer id says which it is, so the tool looks the offer up first and refuses
+anything that is not an outgoing bid **before any request is sent**. That costs one extra
+read and removes a way to do the wrong thing by accident.
+
+It also means the result can name what was withdrawn — the player and the amount — rather
+than echoing an id back.
+
+Annotated `destructive_hint=false`: the bid is gone, but a new one can be placed while the
+market is open.

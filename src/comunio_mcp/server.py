@@ -16,6 +16,7 @@ from comunio_mcp.tools import (
     standings,
     transfers,
     unlist_from_market,
+    withdraw_bid,
 )
 
 mcp = MCPServer(
@@ -44,3 +45,4 @@ transfers.register(mcp)
 list_on_market.register(mcp)
 unlist_from_market.register(mcp)
 set_asking_price.register(mcp)
+withdraw_bid.register(mcp)
