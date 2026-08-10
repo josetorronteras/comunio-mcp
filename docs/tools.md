@@ -24,6 +24,7 @@ can tell them apart and ask before running one.
 | `change_bid` | **write** | `offer_id`, `price` | Changes the amount of a bid you already placed |
 | `withdraw_bid` | **write** | `offer_id` | Pulls one of your bids out of the running |
 | `accept_offer` | **write, irreversible** | `offer_id` | Sells one of your players |
+| `set_lineup` | **write** | `tactic`, players by position | Sets the formation and starting eleven |
 
 ## `ping`
 
@@ -449,3 +450,49 @@ offered, and there is no argument to get wrong.
 
 Only `incoming` offers can be accepted; accepting one of the manager's own bids is refused
 before anything is sent.
+
+## `set_lineup`
+
+**Replaces the current lineup.** Sets the formation and the starting eleven.
+
+Players are given **by position**, not by slot: `keeper`, `defenders`, `midfielders`,
+`strikers`. Ids come from `get_squad`.
+
+### The slot numbers are worked out here
+
+Comunio's endpoint takes numbered slots `"1"` to `"11"` and never says what a number
+means. The mapping was deduced by cross-referencing two real lineups against the squad —
+in both a 442 and a 343 the keeper sat in slot 11 and a striker in slot 1. Slots fill from
+the strikers backwards:
+
+```
+343 → 1,2,3 strikers · 4,5,6,7 midfielders · 8,9,10 defenders · 11 keeper
+442 → 1,2   strikers · 3,4,5,6 midfielders · 7,8,9,10 defenders · 11 keeper
+```
+
+That arithmetic is exactly the kind of thing that does not belong in a prompt, so the tool
+owns it. `slot_plan()` is tested directly.
+
+Valid formations, read as defenders–midfielders–strikers: **442, 343, 352, 433, 451**.
+
+### Incomplete lineups are allowed, and priced
+
+Comunio does not refuse a half-filled lineup; its own interface warns that each empty slot
+costs four points. So empty slots are permitted and the result reports `empty_slots` and
+`penalty_points`. The four-point figure comes from Comunio's wording, not from a
+measurement.
+
+### Injured players are reported, not blocked
+
+Comunio permits fielding someone who is injured or suspended, so the tool does too. They
+come back in `unavailable` instead. Refusing would be inventing a rule the game does not
+have.
+
+### Refused before anything is sent
+
+An unknown formation · more players than the formation has room for · a player not in the
+squad · the same player twice · someone put in a position they do not play. Each is tested
+by asserting nothing left the process.
+
+Annotated `idempotent_hint=true` — sending the same lineup twice leaves the same lineup —
+and `destructive_hint=false`, since it can be set again until the matchday starts.
