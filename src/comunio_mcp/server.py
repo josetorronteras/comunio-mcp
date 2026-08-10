@@ -15,6 +15,7 @@ from comunio_mcp.tools import (
     place_bid,
     player,
     set_asking_price,
+    set_lineup,
     squad,
     standings,
     transfers,
@@ -51,4 +52,5 @@ set_asking_price.register(mcp)
 place_bid.register(mcp)
 change_bid.register(mcp)
 accept_offer.register(mcp)
+set_lineup.register(mcp)
 withdraw_bid.register(mcp)

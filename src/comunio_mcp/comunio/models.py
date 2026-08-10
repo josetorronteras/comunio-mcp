@@ -596,6 +596,34 @@ class AcceptResult(BaseModel):
     )
 
 
+class LineupSlot(BaseModel):
+    slot: int = Field(description="Comunio's slot number, 1 to 11")
+    position: str = Field(description="What that slot plays")
+    player_id: int = Field(description="Player put there")
+    player: str = Field(description="That player's name")
+    status: str = Field(description="Their availability at the time the lineup was set")
+
+
+class LineupResult(BaseModel):
+    """What the lineup was set to.
+
+    Comunio answers with nothing but a status, so everything else here is worked out from
+    what was sent.
+    """
+
+    ok: bool = Field(description="Whether Comunio accepted the lineup")
+    tactic: str = Field(description="Formation the lineup was set to")
+    fielded: list[LineupSlot] = Field(description="Who ended up in which slot")
+    empty_slots: int = Field(description="Slots left unfilled")
+    penalty_points: int = Field(
+        description="What those empty slots cost, by Comunio's own stated rule of four "
+        "points each"
+    )
+    unavailable: list[str] = Field(
+        description="Fielded players who were not ACTIVE — injured, suspended and the like"
+    )
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 
