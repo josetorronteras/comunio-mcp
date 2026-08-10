@@ -18,6 +18,7 @@ can tell them apart and ask before running one.
 | `get_transfers` | read | `limit?` | Completed transfers with the prices actually paid |
 | `get_player` | read | `player_id` | One player's full detail sheet |
 | `list_player_on_market` | **write** | `player_id`, `price` | Puts one of your players up for sale |
+| `unlist_player_from_market` | **write** | `player_id` | Takes one of your players back off sale |
 
 ## `ping`
 
@@ -283,3 +284,25 @@ listings.
 Writes go through `ComunioClient.post`, which does not retry on a 401 the way `get` does.
 A write that reached Comunio and lost only its response would be applied twice by a retry.
 A 401 on a write is reported as a failure instead.
+
+## `unlist_player_from_market`
+
+**Changes the team.** Takes one of the manager's own players back off the market.
+
+Ids come from `get_market`, where the manager's own listings are the ones marked
+`is_mine`. Offers already received for that player are **not** cancelled by unlisting —
+those live in `get_offers`.
+
+Annotated the same way as listing: `read_only_hint=false`, `destructive_hint=false`
+because listing puts it straight back, `idempotent_hint=false` because whether a repeated
+call is a no-op is not something the response lets us verify.
+
+### Comunio says less here than when listing
+
+```json
+{"status": "OK"}
+```
+
+That is the whole response. Where `addplayer` reports a `notPlaced` array, this reports
+nothing per player, so `unlisted` is **what was asked for rather than what was
+confirmed**. The model's description says so, and points at `get_market` for confirmation.
