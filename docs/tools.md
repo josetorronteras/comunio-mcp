@@ -21,6 +21,7 @@ can tell them apart and ask before running one.
 | `unlist_player_from_market` | **write** | `player_id` | Takes one of your players back off sale |
 | `set_asking_price` | **write** | `player_id`, `price` | Changes what you are asking for a listed player |
 | `place_bid` | **write** | `player_id`, `price` | Bids for a player on the market |
+| `change_bid` | **write** | `offer_id`, `price` | Changes the amount of a bid you already placed |
 | `withdraw_bid` | **write** | `offer_id` | Pulls one of your bids out of the running |
 
 ## `ping`
@@ -392,3 +393,26 @@ actually accepted.
 
 `offer_id` in the result is the only way to reach the bid afterwards. Without keeping it,
 a bid just placed can be neither changed nor withdrawn.
+
+## `change_bid`
+
+**Changes what the manager has committed.** Edits the amount of a bid already placed.
+
+Ids come from `get_offers`; only `outgoing` offers can be changed. Like a new bid it waits
+for the transfer round and can still be pulled with `withdraw_bid`, hence
+`destructive_hint=false`.
+
+### The player is not an argument
+
+`tradableid` is taken from the offer being changed, not passed in. A change therefore
+cannot end up pointing at a different player than the bid it edits — a mistake that would
+otherwise be one wrong number away and invisible in the confirmation.
+
+### The same three refusals
+
+Unknown id, an offer *for* one of the manager's players rather than a bid of theirs, and
+an amount beyond available credit. All refused before any request is sent, all tested by
+asserting nothing left the process.
+
+Whether `credit` already accounts for bids currently outstanding is not documented, so the
+check compares against the figure as reported.

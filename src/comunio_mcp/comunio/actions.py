@@ -136,6 +136,7 @@ async def withdraw_bid(session: Session, client: ComunioClient, offer_id: int) -
 
 
 BID_NEW = "NEW"
+BID_CHANGE = "CHANGE"
 
 
 async def place_bid(
@@ -204,4 +205,59 @@ def parse_bid_result(
         price=price,
         applied_immediately=bool(item.get("processImmediately")),
         credit_after=(credit - price) if ok and credit is not None else credit,
+    )
+
+
+async def change_bid(
+    session: Session, client: ComunioClient, offer_id: int, price: int
+) -> BidResult:
+    """Change the amount of a bid the manager has already placed.
+
+    The player is taken from the offer being changed rather than from an argument, so a
+    change cannot quietly end up pointing at a different player.
+
+    Guarded like `withdraw_bid`: an id that belongs to an offer *for* one of the manager's
+    players is not theirs to change.
+    """
+    if price <= 0:
+        raise ValueError("A bid must be greater than zero")
+
+    offers = await fetch_offers(session, client)
+    match = next((offer for offer in offers.offers if offer.offer_id == offer_id), None)
+
+    if match is None:
+        raise ValueError(
+            f"No open offer with id {offer_id}. Check get_offers for the current ones."
+        )
+    if match.direction != OUTGOING:
+        raise ValueError(
+            f"Offer {offer_id} is an offer for the manager's own player, not one of their "
+            "bids. Only the manager's own bids can be changed."
+        )
+    if price > offers.credit:
+        raise ValueError(
+            f"A bid of {price:,} exceeds the available credit of {offers.credit:,}"
+        )
+
+    url = await session.link(OFFERS_LINK)
+    payload = await client.post(
+        url,
+        json={
+            "offers": [
+                {
+                    "price": price,
+                    "type": BID_CHANGE,
+                    "offerid": offer_id,
+                    "tradableid": match.player.id,
+                }
+            ]
+        },
+    )
+
+    return parse_bid_result(
+        payload,
+        player_id=match.player.id,
+        price=price,
+        player=match.player.name,
+        credit=offers.credit,
     )
