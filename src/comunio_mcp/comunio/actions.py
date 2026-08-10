@@ -12,8 +12,10 @@ Everything here mutates. Two rules apply to all of it:
 from typing import Any
 
 from comunio_mcp.comunio.client import ComunioClient
+from comunio_mcp.comunio.market import fetch_market
 from comunio_mcp.comunio.models import (
     AskingPriceResult,
+    BidResult,
     ListingResult,
     UnlistResult,
     WithdrawResult,
@@ -130,4 +132,76 @@ async def withdraw_bid(session: Session, client: ComunioClient, offer_id: int) -
         offer_id=offer_id,
         player=match.player.name,
         price=match.price,
+    )
+
+
+BID_NEW = "NEW"
+
+
+async def place_bid(
+    session: Session, client: ComunioClient, player_id: int, price: int
+) -> BidResult:
+    """Bid for a player on the market.
+
+    Checked before anything is sent, because this commits money:
+
+    * the player is actually on the market, and is not one of the manager's own;
+    * the bid fits within **credit**, which is what can really be spent — not the budget
+      `get_account` reports, which the league's credit factor lets it exceed.
+    """
+    if price <= 0:
+        raise ValueError("A bid must be greater than zero")
+
+    market = await fetch_market(session, client)
+    listing = next((item for item in market.listings if item.player_id == player_id), None)
+    if listing is None:
+        raise ValueError(
+            f"Player {player_id} is not on the market. Check get_market for what is."
+        )
+    if listing.is_mine:
+        raise ValueError(
+            f"{listing.name} is one of the manager's own listings, so bidding on it is not a move"
+        )
+
+    offers = await fetch_offers(session, client)
+    if price > offers.credit:
+        raise ValueError(
+            f"A bid of {price:,} exceeds the available credit of {offers.credit:,}"
+        )
+
+    url = await session.link(OFFERS_LINK)
+    payload = await client.post(
+        url,
+        # Yet another spelling: `tradableid`, all lowercase.
+        json={"offers": [{"price": price, "tradableid": player_id, "type": BID_NEW}]},
+    )
+
+    return parse_bid_result(
+        payload,
+        player_id=player_id,
+        price=price,
+        player=listing.name,
+        credit=offers.credit,
+    )
+
+
+def parse_bid_result(
+    payload: Any, *, player_id: int, price: int, player: str | None, credit: int | None
+) -> BidResult:
+    # The outer `status` only says the request was processed. Whether *this* bid was
+    # accepted is the per-item status, and an outer OK with a rejected item inside is
+    # possible.
+    items = payload.get("response") or []
+    item = items[0] if items else {}
+    ok = item.get("status") == OK
+
+    return BidResult(
+        ok=ok,
+        message=item.get("message"),
+        offer_id=item.get("offerid"),
+        player_id=player_id,
+        player=player,
+        price=price,
+        applied_immediately=bool(item.get("processImmediately")),
+        credit_after=(credit - price) if ok and credit is not None else credit,
     )

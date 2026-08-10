@@ -7,6 +7,7 @@ import pytest
 from comunio_mcp.comunio.actions import (
     list_on_market,
     parse_listing_result,
+    place_bid,
     set_asking_price,
     unlist_from_market,
     withdraw_bid,
@@ -26,9 +27,16 @@ class FakeApi:
     """Answers login, the index, and the addplayer endpoint."""
 
     def __init__(
-        self, *, add_response=None, add_status=200, unauthorized_first=False, offers=None
+        self,
+        *,
+        add_response=None,
+        add_status=200,
+        unauthorized_first=False,
+        offers=None,
+        market=None,
     ) -> None:
         self.offers = offers or {"credit": 0, "items": []}
+        self.market = market or {"items": [], "dailyTransfersProcessed": False}
         self.writes: list[httpx2.Request] = []
         self.add_response = OK_RESPONSE if add_response is None else add_response
         self.add_status = add_status
@@ -48,6 +56,8 @@ class FakeApi:
                     "refresh_token": f"refresh-{self._logins}",
                 },
             )
+        if request.url.path.endswith("/exchangemarket") and request.method == "GET":
+            return httpx2.Response(200, json=self.market)
         if request.url.path.endswith("/offers") and request.method == "GET":
             return httpx2.Response(200, json=self.offers)
         if request.url.path == "/":
@@ -306,3 +316,148 @@ def test_withdrawing_an_unknown_offer_is_refused_before_any_request():
 
     assert "No open offer" in str(excinfo.value)
     assert handler.writes == []
+
+
+def _market_payload(*, player_id=3871, owner_id=1, owner_name="Computer"):
+    return {
+        "items": [
+            {
+                "date": "2026-08-10T04:15:06+0200",
+                "remaining": 14,
+                "watched": False,
+                "_embedded": {
+                    "player": {
+                        "id": player_id,
+                        "name": "Defensa Objetivo",
+                        "club": {"id": 5, "name": "Mock FC"},
+                        "position": "defender",
+                        "trend": 1,
+                        "quotedPrice": 810_000,
+                        "recommendedPrice": 810_000,
+                        "status": "ACTIVE",
+                        "statusInfo": "",
+                        "points": "-",
+                        "purchasePrice": 0,
+                        "watched": False,
+                    },
+                    "owner": {"id": owner_id, "name": owner_name, "communityId": 1},
+                },
+            }
+        ],
+        "nextTransfersDateTime": "2026-08-11T03:00:00+02:00",
+        "dailyTransfersProcessed": True,
+    }
+
+
+BID_OK = {
+    "status": "OK",
+    "response": [
+        {
+            "offerid": 1314490087,
+            "tradableid": 3871,
+            "price": 810_000,
+            "type": "NEW",
+            "status": "OK",
+            "message": "",
+            "processImmediately": False,
+        }
+    ],
+    "opponentIds": "",
+}
+
+
+def _bidding_api(**kwargs):
+    return FakeApi(
+        add_response=kwargs.pop("add_response", BID_OK),
+        market=kwargs.pop("market", _market_payload()),
+        offers=kwargs.pop("offers", {"credit": 29_475_000, "items": []}),
+        **kwargs,
+    )
+
+
+def test_a_bid_is_placed_with_the_documented_body():
+    handler = _bidding_api()
+
+    result = _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
+
+    request = handler.writes[0]
+    assert request.method == "POST"
+    assert request.url.path.endswith("/offers")
+    # `tradableid`, all lowercase, unlike every other endpoint.
+    assert json.loads(request.content) == {
+        "offers": [{"price": 810_000, "tradableid": 3871, "type": "NEW"}]
+    }
+    assert result.ok is True
+    # The offer id is the only handle for changing or withdrawing the bid later.
+    assert result.offer_id == 1314490087
+    assert result.player == "Defensa Objetivo"
+    assert result.applied_immediately is False
+    assert result.credit_after == 29_475_000 - 810_000
+
+
+def test_a_rejected_bid_is_read_from_the_per_item_status():
+    # The outer status says OK while the bid itself was refused.
+    rejected = {
+        "status": "OK",
+        "response": [
+            {
+                "offerid": None,
+                "tradableid": 3871,
+                "price": 810_000,
+                "type": "NEW",
+                "status": "ERROR",
+                "message": "Credit exceeded",
+                "processImmediately": False,
+            }
+        ],
+    }
+    handler = _bidding_api(add_response=rejected)
+
+    result = _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
+
+    assert result.ok is False
+    assert result.message == "Credit exceeded"
+    # Nothing was committed, so spending power is unchanged.
+    assert result.credit_after == 29_475_000
+
+
+def test_a_bid_beyond_credit_is_refused_before_anything_is_sent():
+    # Credit, not budget: the league's credit factor makes them different numbers.
+    handler = _bidding_api(offers={"credit": 500_000, "items": []})
+
+    with pytest.raises(ValueError) as excinfo:
+        _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
+
+    assert "exceeds the available credit" in str(excinfo.value)
+    assert handler.writes == []
+
+
+def test_bidding_for_a_player_who_is_not_on_the_market_is_refused():
+    handler = _bidding_api(market={"items": [], "dailyTransfersProcessed": True})
+
+    with pytest.raises(ValueError) as excinfo:
+        _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
+
+    assert "not on the market" in str(excinfo.value)
+    assert handler.writes == []
+
+
+def test_bidding_on_your_own_listing_is_refused():
+    handler = _bidding_api(
+        market=_market_payload(owner_id=int(USER_ID), owner_name="MOCK MANAGER")
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
+
+    assert "own listing" in str(excinfo.value)
+    assert handler.writes == []
+
+
+def test_a_bid_is_not_retried_after_a_401():
+    handler = _bidding_api(unauthorized_first=True)
+
+    with pytest.raises(httpx2.HTTPStatusError):
+        _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
+
+    assert len(handler.writes) == 1
