@@ -49,7 +49,10 @@ def _parse_row(item: dict, *, rank: int, me: str) -> StandingsRow:
         rank=rank,
         is_me=str(manager_id) == str(me),
         manager_id=manager_id,
-        manager=user.get("name", ""),
+        # Comunio pads some names with a trailing space, as it does in offers
+        # and transfers. Without stripping, the same manager fails to match
+        # across tools.
+        manager=(user.get("name") or "").strip(),
         total_points=item.get("totalPoints", 0),
         last_points=item.get("lastPoints"),
         live_points=item.get("livePoints"),

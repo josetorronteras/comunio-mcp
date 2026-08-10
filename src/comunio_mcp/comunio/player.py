@@ -29,6 +29,22 @@ from comunio_mcp.comunio.statuses import AVAILABLE, meaning
 
 PLAYER_LINK = "game:tradable"
 
+#: Comunio dates a player who was never bought — one from the initial draft — to the Unix
+#: epoch. Read literally it says the manager signed them in 1970.
+EPOCH = "1970-01-01"
+
+
+def _real_date(value: Any) -> str | None:
+    """A date, unless it is the epoch standing in for "never"."""
+    if not value or str(value).startswith(EPOCH):
+        return None
+    return str(value)
+
+
+def _real_number(value: Any) -> int | None:
+    """A number, unless it is a zero standing in for "not applicable"."""
+    return None if not value else value
+
 
 async def fetch_player(session: Session, client: ComunioClient, player_id: int) -> PlayerDetail:
     url = await session.link(PLAYER_LINK, playerId=str(player_id))
@@ -77,23 +93,27 @@ def parse_player(payload: Any) -> PlayerDetail:
         history=_parse_history(payload.get("historical") or {}),
         owner=(owner.get("name") or "").strip() or None,
         owner_id=owner.get("id"),
-        purchase_price=purchase.get("price"),
-        purchased_on=purchase.get("date"),
+        purchase_price=_real_number(purchase.get("price")),
+        purchased_on=_real_date(purchase.get("date")),
         buyout_clause=BuyoutClause(
-            price=clause.get("price"),
+            # Zero means the league has clauses disabled, not that one is free. Left as a
+            # number it invites exactly that arithmetic.
+            price=_real_number(clause.get("price")),
             paid=bool(clause.get("paid")),
             available_from=clause.get("dateOfAvailability"),
-            block_days=clause.get("blockDays"),
+            block_days=_real_number(clause.get("blockDays")),
         ),
         watched=bool(payload.get("watched")),
         next_matches=_parse_matches(payload.get("nextMatches") or []),
         profile=PlayerProfile(
-            date_of_birth=(payload.get("extendedInfo") or {}).get("dob"),
+            # A date of birth arrives as a full timestamp with a made-up time on it.
+            date_of_birth=(_real_date((payload.get("extendedInfo") or {}).get("dob")) or "")[:10]
+            or None,
             nationality=(payload.get("extendedInfo") or {}).get("nationality"),
             height=(payload.get("extendedInfo") or {}).get("height"),
             weight=(payload.get("extendedInfo") or {}).get("weight"),
             preferred_foot=(payload.get("extendedInfo") or {}).get("preferredFoot"),
-            shirt_number=(payload.get("extendedInfo") or {}).get("jerseyNumber"),
+            shirt_number=_real_number((payload.get("extendedInfo") or {}).get("jerseyNumber")),
         ),
     )
 
