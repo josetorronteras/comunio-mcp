@@ -12,10 +12,12 @@ Everything here mutates. Two rules apply to all of it:
 from typing import Any
 
 from comunio_mcp.comunio.client import ComunioClient
-from comunio_mcp.comunio.models import ListingResult
+from comunio_mcp.comunio.models import ListingResult, UnlistResult
 from comunio_mcp.comunio.session import Session
 
-ADD_PLAYER_LINK = "game:exchangemarket"
+MARKET_LINK = "game:exchangemarket"
+
+OK = "OK"
 
 
 async def list_on_market(
@@ -25,7 +27,7 @@ async def list_on_market(
     if price <= 0:
         raise ValueError("An asking price must be greater than zero")
 
-    url = f"{await session.link(ADD_PLAYER_LINK)}/addplayer"
+    url = f"{await session.link(MARKET_LINK)}/addplayer"
     payload = await client.post(url, json={"items": [{"tradableId": player_id, "price": price}]})
 
     return parse_listing_result(payload, requested=[player_id])
@@ -52,3 +54,18 @@ def _ids(not_placed: Any) -> list:
         entry.get("tradableId", entry.get("tradableid")) if isinstance(entry, dict) else entry
         for entry in not_placed
     ]
+
+
+async def unlist_from_market(
+    session: Session, client: ComunioClient, player_id: int
+) -> UnlistResult:
+    """Take one of the manager's own players back off the market."""
+    url = f"{await session.link(MARKET_LINK)}/removeplayer"
+    # A third spelling of the same id: plural, and a bare array of ints.
+    payload = await client.post(url, json={"tradableIds": [player_id]})
+
+    return parse_unlist_result(payload, requested=[player_id])
+
+
+def parse_unlist_result(payload: Any, *, requested: list[int]) -> UnlistResult:
+    return UnlistResult(ok=payload.get("status") == OK, unlisted=requested)

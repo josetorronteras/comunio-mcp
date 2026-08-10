@@ -14,6 +14,7 @@ from comunio_mcp.tools import (
     squad,
     standings,
     transfers,
+    unlist_from_market,
 )
 
 mcp = MCPServer(
@@ -40,3 +41,4 @@ transfers.register(mcp)
 
 # Actions that change something.
 list_on_market.register(mcp)
+unlist_from_market.register(mcp)

@@ -515,6 +515,18 @@ class ListingResult(BaseModel):
     )
 
 
+class UnlistResult(BaseModel):
+    """What came back from taking players off the market.
+
+    Unlike listing, this endpoint reports **no per-player detail** — just an overall
+    status. So `unlisted` is what was asked for, not what Comunio confirmed. Check
+    `get_market` if it matters.
+    """
+
+    ok: bool = Field(description="Whether Comunio reported the request as successful")
+    unlisted: list[int] = Field(description="Player ids the request asked to take off sale")
+
+
 class SquadSummary(BaseModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 
