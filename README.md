@@ -7,8 +7,8 @@ It gives an AI agent read access to your league — squad, market, lineup deadli
 reason about moves. Anything that changes your team is split into a *proposal* the agent produces
 and an *execution* step that only runs after you approve it.
 
-> **Status: early development.** No implementation yet — the stack and the Comunio integration are
-> still being decided.
+> **Status: early development.** The server runs and speaks MCP, but it does not talk to Comunio
+> yet — the only tool so far is `ping`.
 
 ## How it works
 
@@ -36,16 +36,24 @@ first, and it asks you to confirm the real figures before it acts. The agent can
 
 Everything runs in containers — nothing else needs to be installed on the host.
 
-## Quick start (TBD)
+## Quick start
 
-Not available yet. It will land here once the first working version exists.
+```bash
+docker compose build
+claude mcp add comunio -- docker run -i --rm comunio-mcp
+```
+
+Then ask your assistant to call `ping`. Full instructions, including Claude Desktop, are in
+[docs/setup.md](docs/setup.md).
 
 ## Documentation
 
+- [Setup](docs/setup.md) — building the image and connecting it to an MCP client
+- [Development](docs/development.md) — layout, dev commands, SDK gotchas
 - [Architecture](docs/architecture.md) — design decisions and the reasoning behind them
 - [MCP protocol notes](docs/mcp-protocol.md) — the parts of MCP `2026-07-28` that shape this project
 
-Still to be written: the tool catalogue, the Comunio API notes, setup and development guides.
+Still to be written: the tool catalogue and the Comunio API notes.
 
 Contributor conventions are in [CLAUDE.md](CLAUDE.md).
 

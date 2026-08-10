@@ -1,0 +1,27 @@
+# Dev tasks. The MCP client itself does not use compose — it launches the
+# container directly over stdio (see docs/setup.md).
+services:
+  server:
+    build: .
+    image: comunio-mcp
+    stdin_open: true
+    volumes:
+      - ./src:/app/src
+
+  test:
+    build: .
+    image: comunio-mcp
+    entrypoint: ["pytest"]
+    command: ["-q"]
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+
+  lint:
+    build: .
+    image: comunio-mcp
+    entrypoint: ["ruff"]
+    command: ["check", "."]
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests

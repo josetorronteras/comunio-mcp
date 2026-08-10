@@ -92,6 +92,62 @@ clients actually implement `elicitation` against spec `2026-07-28`.
 
 ---
 
+## Decision 3 — Python MCP SDK 2.0, verified rather than assumed
+
+**Status:** accepted, 2026-08-10.
+
+### Context
+
+Two candidate lines existed when the skeleton was written:
+
+| | SDK 1.x | SDK 2.0 |
+| --- | --- | --- |
+| Latest | 1.29.0 | 2.0.0, released 2026-07-28 |
+| API | `FastMCP` | `MCPServer` |
+| Spec | `2025-11-25` | `2026-07-28` |
+
+1.x is the mature line and what most examples online are written against. 2.0.0 was
+thirteen days old, described by its authors as "a major rework of the SDK" for the
+`2026-07-28` specification.
+
+### Decision
+
+**SDK 2.0, `mcp[cli]>=2.0.0,<3.0.0`, Python 3.12.** The project is greenfield; adopting an
+API that has just been replaced would mean starting in debt.
+
+The decision was checked against the real package inside a container rather than taken
+from the documentation:
+
+- `from mcp.server import MCPServer` — works.
+- **`mcp.server.fastmcp` is gone.** Not renamed: `ModuleNotFoundError`. The 1.x code style
+  simply does not run on 2.0.
+- `mcp.server.elicitation` exists, exposing `elicit_with_validation` and `elicit_url`, and
+  `Elicit` is available for resolvers. **Decision 2's approval design is supported by the
+  SDK.**
+- The SDK depends on `httpx2`, not `httpx`.
+- Model fields are snake_case in Python and camelCase on the wire:
+  `ToolAnnotations(read_only_hint=True)` is serialised as `"readOnlyHint": true`.
+
+End-to-end over stdio, the server answers `server/discover`, `tools/list` and `tools/call`
+correctly, advertising `"supportedVersions": ["2026-07-28"]`.
+
+### Consequences
+
+- `eduardolosilla-mcp`, the sibling project, is on 1.x with `FastMCP`. Its **structure** is
+  worth copying — one module per resource exposing `register(mcp)`, Pydantic models with
+  `Field(description=...)`, a shared HTTP client through the lifespan, no swallowing of
+  HTTP errors — but its **imports and API calls are not portable**.
+- Examples found online are overwhelmingly 1.x. Check the import path before trusting any
+  snippet.
+
+### Still unverified
+
+Whether the MCP clients we care about negotiate `2026-07-28` in practice. The server
+declares only that version. If a client turns out to speak `2025-11-25` only, this
+decision needs revisiting — that is the risk knowingly taken here.
+
+---
+
 ## Tool layers
 
 Derived from the two decisions above:
