@@ -64,7 +64,8 @@ approach for stdio servers. They never go in the image or in git.
 | `COMUNIO_USERNAME` | yes | — |
 | `COMUNIO_PASSWORD` | yes | — |
 | `COMUNIO_TIMEZONE` | no | `Europe/Madrid` |
-| `COMUNIO_USER_AGENT` | no | `comunio-mcp/0.1.0` |
+| `COMUNIO_USER_AGENT` | no | the captured browser user agent |
+| `COMUNIO_STATE_DIR` | no | `/data` |
 
 Without them the server still starts and `ping` still works; only the tools that reach
 Comunio fail, with a message saying what is missing.
@@ -103,3 +104,20 @@ path to your `.env`:
 
 The `--env-file` form keeps the password out of the config file. Details of the
 authentication flow are in [comunio-api.md](comunio-api.md).
+
+## Keeping proposals across restarts
+
+Proposals — the record of what was suggested, approved and executed — live in a SQLite
+file under `COMUNIO_STATE_DIR`, `/data` by default. Inside a `--rm` container that is
+fine for a working session but disappears when the server stops.
+
+Mount a volume to keep them, and with them the audit trail of what was actually done:
+
+```bash
+claude mcp add comunio -- docker run -i --rm \
+  --env-file /absolute/path/to/.env \
+  -v /absolute/path/to/comunio-state:/data \
+  comunio-mcp
+```
+
+Without it everything still works; only the history is lost between runs.
