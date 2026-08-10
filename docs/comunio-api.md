@@ -84,6 +84,79 @@ replaced with `COMUNIO_USER_AGENT` without touching code.
 Do not trim this list to what "looks necessary" without testing against the real API
 first — and if you do trim it, record which headers turned out to be load-bearing.
 
+## The index: `GET /`
+
+The root is a HAL-style index and the entry point to everything else. It returns the
+signed-in manager, their league, and `_links` — **88 named routes** covering the whole
+API. No path is hardcoded anywhere else in this project; they all come from here.
+
+```
+game:squad                  game:lineup              game:tradables      (the market)
+game:readOffers             game:watchlist           game:currentMatchday
+game:tradableQuoteHistory   game:standings           game:statement      …
+```
+
+### Links come in two shapes
+
+Sometimes for sibling routes, which is why the resolver has to handle both:
+
+```
+game:lineup   →  /communities/<communityId>/users/<userId>/lineup    ids already baked in
+game:squad    →  /users/:userId/squad                                templated
+game:tradable →  /communities/:communityId/users/:userId/players/:playerId
+```
+
+`Session.link()` substitutes `:placeholder` segments, defaulting `userId` and
+`communityId` to the signed-in manager and their league, and **refuses to return a URL
+that still has placeholders** — a half-resolved path would 404 in a confusing way.
+
+Note that `game:squad` carries no `communityId`. That suggests an account belongs to a
+single community, which matches how the accounts we have seen behave.
+
+### Two lifetimes, kept apart
+
+| Data | Strategy | Why |
+| --- | --- | --- |
+| `_links`, `userId`, `communityId` | Cached for the life of the process | Routing. It does not change. |
+| `budget`, `teamValue`, `points`, `tactic`, counts | **Never cached** | A stale budget is a miscalculated bid |
+
+No middle-ground TTL on the volatile half on purpose: a five-minute cache can still lie,
+just unpredictably. Refetching costs one HTTP call; getting the money wrong costs a
+signing.
+
+### What we keep, and what we drop
+
+The raw response carries the account email, an invitation code, Google advertising
+identifiers, the community password field and moderation flags. **None of that belongs in
+a conversation transcript.**
+
+The models in `comunio/models.py` are therefore **allowlists, not filters**: only declared
+fields survive validation, so a field Comunio adds tomorrow is dropped by default instead
+of leaking. A test asserts the known-sensitive fields never appear in a serialised
+snapshot.
+
+Kept from `user`: `id`, `name`, `budget`, `teamValue`, `teamCount`, `teamCountLinedup`,
+`points`, `salaries`, `tactic`.
+
+Kept from `community`: `id`, `name`, and the subset of `rules` that constrains legal
+moves — bidding mechanics (`second_highest_offers`, `anonymous_bidding`), market limits
+(`tradables_on_exchangemarket`, `max_tradables_per_user`, `sales_ban`), squad constraints
+(`players_member_per_club`), and pricing (`creditfactor`, `injured_tradable_offer_factor`,
+buyout clauses).
+
+`rules` looks like league metadata, but it is the rulebook the deterministic layer needs:
+`second_highest_offers` alone changes what a correct bid amount is.
+
+### Payload quirks
+
+- **Numbers arrive as strings**: `"15000000"`, `"18"`. Pydantic coerces them; without the
+  models, arithmetic would silently concatenate.
+- **"No limit" is an empty string**, not `null` — `max_tradables_per_user: ""`. Handled by
+  the `OptionalInt` validator.
+- **Rules are wrapped**: the settings live under `community.rules.items`, not
+  `community.rules`.
+- URLs come with escaped slashes (`https:\/\/…`), which is valid JSON and decodes itself.
+
 ## How this is wired up
 
 | Piece | Responsibility |
@@ -91,7 +164,9 @@ first — and if you do trim it, record which headers turned out to be load-bear
 | `config.py` | Credentials and timezone from the environment; computes `tzoffset` |
 | `comunio/auth.py` | Holds a usable token: logs in, refreshes, falls back to a full login if a refresh is rejected |
 | `comunio/client.py` | Applies the token to every request and retries once on a 401 |
-| `context.py` | Builds the shared HTTP client once per process and hands tools a `ComunioClient` |
+| `comunio/session.py` | Fetches `GET /`; caches routing, resolves named links, returns fresh state |
+| `comunio/models.py` | Allowlist models for what Comunio returns |
+| `context.py` | Builds the shared HTTP client and session once per process |
 
 Design points worth keeping:
 
@@ -137,10 +212,14 @@ Access token valid for another 1799s
 So the headers pass, the computed `tzoffset` is accepted, the refresh works with a rotated
 token, and `expires_in: 1800` matches what the token actually reports.
 
+On 2026-08-10, `get_account` was called end to end through the MCP stdio transport
+against the real API and returned the live budget, squad totals, formation and league
+rules.
+
 ## Not yet known
 
-- Every endpoint other than `/login`. Squad, market, lineup and deadline are all still
-  unmapped.
+- The *response shape* of every endpoint other than `/login` and `/`. The routes are all
+  known from `_links`; what they return is not.
 - Whether the `authorization` header is *required* on a refresh. We send it because the
   web app does, and it works; refreshing without it has not been tried.
 - Which of the browser headers are load-bearing. The full set works; no subset has been
