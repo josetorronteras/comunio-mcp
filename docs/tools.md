@@ -3,9 +3,9 @@
 Every tool the server exposes, its layer and its effects. A tool is documented here in the
 same change that implements it.
 
-Layers are defined in [architecture.md](architecture.md): **read** never mutates,
-**propose** computes a candidate without sending anything, **execute** applies a proposal
-the user has already approved.
+Every tool named `get_*` only reads and is always safe to call. Everything else changes
+the manager's team or spends their money, and is marked `read_only_hint=False` so a client
+can tell them apart and ask before running one.
 
 | Tool | Layer | Arguments | Returns |
 | --- | --- | --- | --- |
@@ -17,6 +17,7 @@ the user has already approved.
 | `get_offers` | read | — | Open offers in both directions, and real spending power |
 | `get_transfers` | read | `limit?` | Completed transfers with the prices actually paid |
 | `get_player` | read | `player_id` | One player's full detail sheet |
+| `list_player_on_market` | **write** | `player_id`, `price` | Puts one of your players up for sale |
 
 ## `ping`
 
@@ -251,3 +252,34 @@ Annotated `read_only_hint=True`.
   twelve codes mean the player cannot be fielded.
 
 `position` is not in this payload — it comes from `get_squad` or `get_market`.
+
+## `list_player_on_market`
+
+**Changes the team.** Puts one of the manager's own players up for sale at the given asking
+price.
+
+| Annotation | Value | Why |
+| --- | --- | --- |
+| `read_only_hint` | `false` | It mutates |
+| `destructive_hint` | `false` | Reversible — the player can be taken back off the market |
+| `idempotent_hint` | `false` | Listing twice is not the same as listing once |
+
+Ids come from `get_squad`. `get_player` gives Comunio's suggested price for comparison.
+
+### Read the result, do not assume it
+
+```json
+{"placed": [3354], "rejected": [], "remaining": 36}
+```
+
+`addplayer` is a batch endpoint and reports per player. **Comunio can refuse an individual
+player while reporting overall success**, so `placed` and `rejected` are read from
+`notPlaced` rather than inferred from the outer `status`. `remaining` is Comunio's own
+counter; what it counts is undocumented and does not match the countdown on market
+listings.
+
+### Not retried
+
+Writes go through `ComunioClient.post`, which does not retry on a 401 the way `get` does.
+A write that reached Comunio and lost only its response would be applied twice by a retry.
+A 401 on a write is reported as a failure instead.
