@@ -1,4 +1,4 @@
-"""Change the asking price of a player already on the market."""
+"""Change the asking price of a player already listed on the market."""
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
@@ -18,15 +18,16 @@ def register(mcp: MCPServer) -> None:
             idempotent_hint=True,
         )
     )
-    async def set_asking_price(
+    async def change_listing_price(
         ctx: Context[AppContext], player_id: int, price: int
     ) -> AskingPriceResult:
-        """Change what the manager is asking for a player they already have on the
+        """Change what the manager is asking for a player they already have listed on the
         market.
 
         **This changes the manager's team.** Confirm the player and the new price with the
-        user before calling it. The player must already be listed — use
-        `list_player_on_market` first if they are not.
+        user before calling it. **The player must already be listed** — use
+        `list_player_on_market` first if they are not; this tool cannot put anyone up for
+        sale.
 
         This sets the *manager's own* asking price. It has nothing to do with the
         `recommended_price` that `get_market` and `get_player` report, which is Comunio's

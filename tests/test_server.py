@@ -8,15 +8,23 @@ def test_server_identity() -> None:
     assert mcp.name == SERVER_NAME
 
 
-def test_ping_is_registered_and_read_only() -> None:
+def test_reads_and_writes_are_told_apart_by_annotation() -> None:
+    # A client uses this to decide what to ask about before running.
     tools = asyncio.run(mcp.list_tools())
-    by_name = {tool.name: tool for tool in tools}
 
-    assert "ping" in by_name
-    assert by_name["ping"].annotations.read_only_hint is True
+    reads = {t.name for t in tools if t.annotations and t.annotations.read_only_hint}
+    writes = {t.name for t in tools if not (t.annotations and t.annotations.read_only_hint)}
+
+    assert all(name.startswith("get_") for name in reads)
+    assert not any(name.startswith("get_") for name in writes)
 
 
-def test_ping_answers() -> None:
-    result = asyncio.run(mcp.call_tool("ping", {}))
+def test_only_accepting_an_offer_is_destructive() -> None:
+    # Everything else queues or can be reversed; this is the one that cannot.
+    tools = asyncio.run(mcp.list_tools())
 
-    assert result is not None
+    destructive = {
+        t.name for t in tools if t.annotations and t.annotations.destructive_hint
+    }
+
+    assert destructive == {"accept_offer"}

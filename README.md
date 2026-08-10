@@ -7,8 +7,8 @@ It gives an AI agent read access to your league — squad, market, lineup deadli
 reason about moves. Anything that changes your team is split into a *proposal* the agent produces
 and an *execution* step that only runs after you approve it.
 
-> **Status: early development.** The server authenticates against Comunio and reads your account,
-> budget and league rules. Squad, market and lineup are not implemented yet.
+> **Status: early development.** Eighteen tools: reading the squad, market, offers, standings and
+> transfers, and acting on the market, bids and lineup. All verified against a real account.
 
 ## How it works
 
@@ -43,7 +43,7 @@ docker compose build
 claude mcp add comunio -- docker run -i --rm comunio-mcp
 ```
 
-Then ask your assistant to call `ping`. Full instructions, including Claude Desktop, are in
+Then ask your assistant how your team is doing. Full instructions, including Claude Desktop, are in
 [docs/setup.md](docs/setup.md).
 
 ## Documentation

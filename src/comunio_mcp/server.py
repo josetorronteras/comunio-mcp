@@ -8,13 +8,12 @@ from comunio_mcp.tools import (
     accept_offer,
     account,
     change_bid,
+    change_listing_price,
     list_on_market,
     market,
     offers,
-    ping,
     place_bid,
     player,
-    set_asking_price,
     set_lineup,
     squad,
     standings,
@@ -37,7 +36,6 @@ mcp = MCPServer(
     ),
 )
 
-ping.register(mcp)
 account.register(mcp)
 squad.register(mcp)
 player.register(mcp)
@@ -50,7 +48,7 @@ watchlist.register(mcp)
 # Actions that change something.
 list_on_market.register(mcp)
 unlist_from_market.register(mcp)
-set_asking_price.register(mcp)
+change_listing_price.register(mcp)
 place_bid.register(mcp)
 change_bid.register(mcp)
 accept_offer.register(mcp)

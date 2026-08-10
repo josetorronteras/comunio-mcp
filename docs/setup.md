@@ -48,8 +48,9 @@ that never answers. `--rm` keeps a container from piling up on every launch.
 
 ## Checking it works
 
-Ask the client to call the `ping` tool. It answers with the server name, its version and
-the current UTC time, and touches nothing in Comunio.
+Ask the client to call `get_account`. It answers with the manager's budget, squad totals
+and league rules — which also proves the credentials work, since it is a real Comunio
+call.
 
 To check without a client at all, see the direct JSON-RPC recipe in
 [development.md](development.md).
@@ -67,8 +68,8 @@ approach for stdio servers. They never go in the image or in git.
 | `COMUNIO_USER_AGENT` | no | the captured browser user agent |
 | `COMUNIO_STATE_DIR` | no | `/data` |
 
-Without them the server still starts and `ping` still works; only the tools that reach
-Comunio fail, with a message saying what is missing.
+Without them the server still starts and lists its tools; every tool then fails with a
+message saying which variables are missing.
 
 To check the credentials work before wiring anything up:
 
