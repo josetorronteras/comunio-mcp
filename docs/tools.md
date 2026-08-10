@@ -19,6 +19,7 @@ can tell them apart and ask before running one.
 | `get_player` | read | `player_id` | One player's full detail sheet |
 | `list_player_on_market` | **write** | `player_id`, `price` | Puts one of your players up for sale |
 | `unlist_player_from_market` | **write** | `player_id` | Takes one of your players back off sale |
+| `set_asking_price` | **write** | `player_id`, `price` | Changes what you are asking for a listed player |
 
 ## `ping`
 
@@ -306,3 +307,26 @@ call is a no-op is not something the response lets us verify.
 That is the whole response. Where `addplayer` reports a `notPlaced` array, this reports
 nothing per player, so `unlisted` is **what was asked for rather than what was
 confirmed**. The model's description says so, and points at `get_market` for confirmation.
+
+## `set_asking_price`
+
+**Changes the team.** Changes what the manager is asking for a player they already have on
+the market. The player must be listed first.
+
+### The name is deliberate
+
+Comunio calls this route `recommendedprice`, and the link `updateRecommendedPrice`. It does
+**not** touch Comunio's recommendation — it sets the manager's own asking price. Naming the
+tool after the route would have told the model it was adjusting the game's suggestion,
+which is the opposite of what happens. The `recommended_price` reported by `get_market` and
+`get_player` is Comunio's own and cannot be changed.
+
+### The odd one out, twice over
+
+It is a **`PUT`** where the other market actions are `POST`s, and it answers with a **bare
+`true`** rather than an object. There is nothing to read beyond whether it worked, so `ok`
+is `payload is True` and anything else counts as failure.
+
+This is also the only write action annotated `idempotent_hint=true`: setting the same price
+twice leaves the same price. The others make no such claim, because their responses give no
+way to verify it.

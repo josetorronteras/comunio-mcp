@@ -11,6 +11,7 @@ from comunio_mcp.tools import (
     offers,
     ping,
     player,
+    set_asking_price,
     squad,
     standings,
     transfers,
@@ -42,3 +43,4 @@ transfers.register(mcp)
 # Actions that change something.
 list_on_market.register(mcp)
 unlist_from_market.register(mcp)
+set_asking_price.register(mcp)

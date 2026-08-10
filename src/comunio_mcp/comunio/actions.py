@@ -12,7 +12,7 @@ Everything here mutates. Two rules apply to all of it:
 from typing import Any
 
 from comunio_mcp.comunio.client import ComunioClient
-from comunio_mcp.comunio.models import ListingResult, UnlistResult
+from comunio_mcp.comunio.models import AskingPriceResult, ListingResult, UnlistResult
 from comunio_mcp.comunio.session import Session
 
 MARKET_LINK = "game:exchangemarket"
@@ -69,3 +69,26 @@ async def unlist_from_market(
 
 def parse_unlist_result(payload: Any, *, requested: list[int]) -> UnlistResult:
     return UnlistResult(ok=payload.get("status") == OK, unlisted=requested)
+
+
+async def set_asking_price(
+    session: Session, client: ComunioClient, player_id: int, price: int
+) -> AskingPriceResult:
+    """Change the asking price of a player the manager already has on the market.
+
+    Named for what it does. Comunio calls the route `recommendedprice`, but it does not
+    touch Comunio's own recommendation — it sets the manager's own price.
+    """
+    if price <= 0:
+        raise ValueError("An asking price must be greater than zero")
+
+    url = f"{await session.link(MARKET_LINK)}/recommendedprice"
+    # A second spelling again: `playerId`, and a different word for the amount.
+    payload = await client.put(url, json={"playerId": player_id, "newPrice": price})
+
+    return parse_asking_price_result(payload, player_id=player_id, price=price)
+
+
+def parse_asking_price_result(payload: Any, *, player_id: int, price: int) -> AskingPriceResult:
+    # The response is a bare boolean rather than an object, unlike every other action.
+    return AskingPriceResult(ok=payload is True, player_id=player_id, price=price)
