@@ -181,3 +181,4 @@ cython_debug/
 .cursorindexingignore
 # Local proposal store
 .state/
+.DS_Store
