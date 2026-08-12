@@ -362,28 +362,34 @@ class Offers(BaseModel):
 class Transfer(BaseModel):
     """A completed transfer. What a player actually changed hands for."""
 
+    offer_id: int = Field(description="Identifier of the offer that settled into this")
     player_id: int = Field(description="Player identifier")
     player: str = Field(description="Player name")
+    club: MissingStr = Field(default=None, description="The player's club")
+    position: MissingStr = Field(
+        default=None, description="keeper, defender, midfielder or striker"
+    )
+    status: MissingStr = Field(
+        default=None, description="The player's availability when the deal settled"
+    )
+
     price: int = Field(description="What was actually paid, in euros")
+    quoted_price: MissingInt = Field(
+        default=None,
+        description="What the player was valued at, for comparison with what was paid",
+    )
 
     from_manager: str = Field(description="Who the player came from")
     from_id: int = Field(description="Identifier of the seller")
     to_manager: str = Field(description="Who the player went to")
     to_id: int = Field(description="Identifier of the buyer")
 
-    kind: str = Field(
-        description="Which bucket Comunio filed it under, e.g. FROM_COMPUTER or TO_COMPUTER"
-    )
     from_computer: bool = Field(description="Bought from Comunio itself")
     to_computer: bool = Field(description="Sold back to Comunio itself")
     involves_me: bool = Field(description="The signed-in manager was on one side of it")
 
-    date: datetime = Field(description="When the transfer round that settled it ran")
-    immediate_at: MissingStr = Field(
-        default=None,
-        description="Time of day of an immediate sale, when it did not wait for the round. "
-        "A clock time only, with no date.",
-    )
+    offered_at: datetime = Field(description="When the offer was made")
+    settled_at: datetime = Field(description="When it went through")
 
 
 class TransfersSummary(BaseModel):

@@ -202,37 +202,76 @@ available here.
 Transfers that have already completed, newest first.
 
 The point of this tool is **settled prices**. `get_market` says what a player is listed at;
-this says what one actually went for, which is what a bid should be calibrated against.
+this says what one actually went for, which is what a bid should be calibrated against —
+and `quoted_price` comes back alongside `price`, so paying over the odds is visible without
+a second call.
 
-Per transfer: `player`, `player_id`, `price`, `from_manager`, `to_manager`, `date`, and
+Per transfer: `offer_id`, `player`, `player_id`, `club`, `position`, `status`, `price`,
+`quoted_price`, `from_manager`, `to_manager`, `offered_at`, `settled_at`, and
 
 | Field | Meaning |
 | --- | --- |
 | `from_computer` | Bought from Comunio |
 | `to_computer` | Sold back to Comunio |
 | `involves_me` | The signed-in manager was on one side |
-| `kind` | The bucket Comunio filed it under |
-| `immediate_at` | Clock time of a sale that did not wait for the transfer round |
 
 `summary` totals each kind plus `total_value`.
 
-`limit` defaults to one page of news. Larger values cost one extra request per page, so it
-is worth raising only when the extra history is wanted.
-
 Annotated `read_only_hint=True`.
 
-### What it deliberately does not return
+### `limit` is a default, not a ceiling
 
-There is no transfers endpoint — these come out of the league news feed, which is mostly
-promotional HTML, welcome messages and administration notices. All of that is dropped. A
-single marketing entry in that feed is longer than every transfer in it put together, and
-none of it belongs in a model's context.
+It defaults to 20, and **this endpoint returns as many as it is asked for** — measured at
+20, 50, 100 and 200, it gave everything there was and reported `hasMore: false`. Raise it
+to look further back. It only costs an extra request when there is more history than one
+page holds.
+
+This is worth stating because the same is *not* true of `game:news`, which backs
+`get_news`: that one caps a page at 20 whatever it is asked for.
+
+### It reads the offer history, not the news feed
+
+`game:readOffersHistory` is the settled half of the collection `get_offers` reads while
+offers are still open. Every row comes back `state: PROCESSED`.
+
+Transfers used to be reconstructed from the league news feed, which files them as one
+digest entry per day. Measured against a real league, the two carry **the same 31
+movements over the same five days** — and the history does it in **one request where the
+feed needed twelve**, while also carrying the player\'s club, position, status, the quoted
+price and both timestamps, none of which the digest has.
+
+### `type` says nothing about direction
+
+The payload has a `type` of `SALE` or `PURCHASE` and it is a trap. Over a real league\'s
+entire history, `SALE` appeared **15 times on a player moving to Comunio and 13 times on
+one moving from it**. Reading direction off it would be wrong for a third of the rows, so
+the field is not exposed at all: carrying something whose only property is looking
+meaningful invites the mistake.
+
+What does hold, checked on 31 of 31 deals against the same ones in the news feed:
+
+| Payload field | Is |
+| --- | --- |
+| `tradable.owner` | Who held the player — the **seller** |
+| `user` | Whose offer it was — the **buyer** |
+| `tradingPartner` | Repeats the owner, so it adds nothing |
+
+The cross-check that settles it: the summary counts 16 bought from Comunio and 15 sold to
+it, which is exactly the `FROM_COMPUTER: 16` / `TO_COMPUTER: 15` the news feed reports for
+the same period.
+
+### Names arrive padded
+
+Manager names carry a trailing space and at least one player name is padded at both ends
+(`" Fran González "`). All of them are stripped.
 
 ## `get_news`
 
-The league feed, newest first. Same endpoint as `get_transfers`, read for the opposite
-reason: that tool keeps only the transfer entries and discards the rest, this one is the
-rest.
+The league feed, newest first.
+
+`get_transfers` used to read this same endpoint and keep only the transfer entries; it now
+reads the offer history instead, so **`game:news` backs this tool alone**. Transfer entries
+still appear here, reporting only how many moves they cover.
 
 Per entry: `id`, `date`, `edited_at`, `type`, `title`, `text`, `links`, `sticky`,
 `comments`, `has_poll`, plus fields that only apply to some kinds.

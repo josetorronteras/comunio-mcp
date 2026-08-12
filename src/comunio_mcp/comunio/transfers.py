@@ -1,17 +1,20 @@
-"""Completed transfers, extracted from the league news feed.
+"""Completed transfers, from the offers history.
 
-There is no transfers endpoint. Transfers arrive as one entry per day in `game:news`,
-alongside promotional HTML, welcome messages and administration notices. Only the
-`TRANSACTION_TRANSFER` entries are of any use here, so the rest is discarded rather than
-handed to a model: a single marketing entry in that feed is longer than every transfer in
-it put together.
+`game:readOffersHistory` is the settled half of the same collection `get_offers` reads
+while it is still open: every offer that went through, `state: PROCESSED`.
+
+These were previously reconstructed from the league news feed, which has no transfers
+endpoint of its own and files them as one digest entry per day. Measured against a real
+league, the two carry **exactly the same 31 movements** over the same five days, and the
+history does it in one request where the feed needed twelve. The feed still backs
+`get_news`; it is no longer the source for transfers.
 
 What makes these worth reading is that they are **settled prices** — what a player actually
-went for, rather than what the market quotes.
+went for, rather than what the market quotes. `quoted_price` comes back alongside, so the
+two can be compared without a second call.
 """
 
 import logging
-from typing import Any
 
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.market import COMPUTER_USER_ID
@@ -20,46 +23,38 @@ from comunio_mcp.comunio.session import Session
 
 logger = logging.getLogger(__name__)
 
-NEWS_LINK = "game:news"
+HISTORY_LINK = "game:readOffersHistory"
 
-TRANSFER_TYPE = "TRANSACTION_TRANSFER"
+#: One page. Unlike the news feed, this endpoint **honours the limit it is given**:
+#: measured at 20, 50, 100 and 200, it returned everything there was and reported
+#: `hasMore: false`. So this is a default, not a ceiling.
+DEFAULT_LIMIT = 20
 
-#: `originaltypes=true` is load-bearing: without it Comunio collapses the entry types to
-#: coarse ones (`TRANSACTION` instead of `TRANSACTION_TRANSFER`) and they cannot be told
-#: apart. `group=true` only nests the entries under dates, which is more work to undo. The
-#: web app also sends `type=HIDDEN_NEWS`, which was measured to change nothing.
-BASE_PARAMS = "originaltypes=true"
-
-#: The server caps a page at 20 however large a limit is requested.
-PAGE_SIZE = 20
-
-#: Stops a request for a big limit from walking the whole history of the league.
+#: Stops a request for a huge limit from walking the league's whole history.
 MAX_PAGES = 10
 
 
 async def fetch_transfers(
-    session: Session, client: ComunioClient, limit: int = 50
+    session: Session, client: ComunioClient, limit: int = DEFAULT_LIMIT
 ) -> Transfers:
-    url = await session.link(NEWS_LINK)
+    url = await session.link(HISTORY_LINK)
     me = (await session.info()).user_id
 
     transfers: list[Transfer] = []
     has_more = False
 
-    for page in range(MAX_PAGES):
-        payload = await client.get(
-            f"{url}?{BASE_PARAMS}&start={page * PAGE_SIZE}&limit={PAGE_SIZE}"
-        )
-        news = payload.get("newsList") or {}
-        entries = news.get("entries") or []
-        has_more = bool(news.get("hasMore"))
+    for _ in range(MAX_PAGES):
+        remaining = limit - len(transfers)
+        payload = await client.get(f"{url}?offset={len(transfers)}&limit={remaining}")
+        items = payload.get("items") or []
+        has_more = bool(payload.get("hasMore"))
 
-        transfers.extend(parse_transfer_entries(entries, me=me))
+        transfers.extend(parse_transfers(items, me=me))
 
-        if len(transfers) >= limit or not entries or not has_more:
+        if len(transfers) >= limit or not items or not has_more:
             break
     else:
-        logger.info("Stopped after %d pages of news", MAX_PAGES)
+        logger.info("Stopped after %d pages of offer history", MAX_PAGES)
 
     if len(transfers) > limit:
         transfers, has_more = transfers[:limit], True
@@ -67,54 +62,56 @@ async def fetch_transfers(
     return Transfers(summary=_summarise(transfers, me=me), has_more=has_more, transfers=transfers)
 
 
-def parse_transfer_entries(entries: list[dict], *, me: str) -> list[Transfer]:
-    return [
-        transfer
-        for entry in entries
-        if entry.get("type") == TRANSFER_TYPE
-        for transfer in _parse_entry(entry, me=me)
-    ]
+def parse_transfers(items: list[dict], *, me: str) -> list[Transfer]:
+    return [_parse(item, me=me) for item in items if isinstance(item, dict)]
 
 
-def _parse_entry(entry: dict, *, me: str) -> list[Transfer]:
-    """One entry is a day's worth of transfers, bucketed by kind."""
-    date = entry.get("date")
-    message = entry.get("message")
-    if not isinstance(message, dict):
-        return []
+def _parse(item: dict, *, me: str) -> Transfer:
+    player = item.get("tradable") or {}
+    club = player.get("club") or {}
 
-    transfers = []
-    # Iterate whatever buckets are present rather than naming them. Only FROM_COMPUTER and
-    # TO_COMPUTER have been observed, but manager-to-manager deals presumably arrive under
-    # a third key, and dropping them silently would be worse than not knowing the name.
-    for kind, moves in message.items():
-        if not isinstance(moves, list):
-            continue
-        transfers.extend(_parse_move(move, kind=kind, date=date, me=me) for move in moves)
-
-    return transfers
-
-
-def _parse_move(move: dict, *, kind: str, date: Any, me: str) -> Transfer:
-    player = move.get("tradable") or {}
-    seller = move.get("from") or {}
-    buyer = move.get("to") or {}
+    # Which way the player moved. Nothing in the payload states it, and the field that
+    # looks like it does is a trap — see `_direction`.
+    seller, buyer = _direction(item)
 
     return Transfer(
+        offer_id=item.get("id"),
         player_id=player.get("id"),
-        player=player.get("name", ""),
-        price=move.get("price", 0),
+        # Some names arrive padded on both sides, e.g. " Fran González ".
+        player=(player.get("name") or "").strip(),
+        club=(club.get("name") or "").strip() or None,
+        position=player.get("position"),
+        status=player.get("status"),
+        price=item.get("price", 0),
+        quoted_price=player.get("quotedPrice"),
         from_manager=(seller.get("name") or "").strip(),
         from_id=seller.get("id"),
         to_manager=(buyer.get("name") or "").strip(),
         to_id=buyer.get("id"),
-        kind=kind,
         from_computer=seller.get("id") == COMPUTER_USER_ID,
         to_computer=buyer.get("id") == COMPUTER_USER_ID,
         involves_me=str(seller.get("id")) == str(me) or str(buyer.get("id")) == str(me),
-        date=date,
-        immediate_at=move.get("immediateTransferTime"),
+        offered_at=item.get("datecreated"),
+        settled_at=item.get("datechanged"),
     )
+
+
+def _direction(item: dict) -> tuple[dict, dict]:
+    """Who the player came from and who they went to.
+
+    The payload does not say. `type` looks like the answer and is not: measured across a
+    real league's whole history, `SALE` appeared 15 times on a player moving *to* Comunio
+    and 13 times on one moving *from* it. Reading direction off it would be wrong for a
+    third of the rows.
+
+    What does hold, on 31 of 31 checked against the same deals in the news feed:
+
+    * **`tradable.owner`** is who held the player when the offer was made — the seller.
+    * **`user`** is who the offer belongs to — the buyer.
+
+    `tradingPartner` repeats the owner, so it adds nothing.
+    """
+    return (item.get("tradable") or {}).get("owner") or {}, item.get("user") or {}
 
 
 def _summarise(transfers: list[Transfer], *, me: str) -> TransfersSummary:
