@@ -7,14 +7,9 @@ container as environment variables. See docs/setup.md.
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 DEFAULT_TIMEZONE = "Europe/Madrid"
-
-#: Where proposals are kept. Inside the container by default, so they survive between
-#: tool calls but not between runs; mount a volume here to keep the audit trail.
-DEFAULT_STATE_DIR = "/data"
 
 # The user agent from the captured web-app traffic. Kept as-is because the request we
 # know Comunio accepts carried exactly this; override with COMUNIO_USER_AGENT.
@@ -34,7 +29,6 @@ class Settings:
     password: str
     timezone: str = DEFAULT_TIMEZONE
     user_agent: str = DEFAULT_USER_AGENT
-    state_dir: str = DEFAULT_STATE_DIR
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -55,19 +49,13 @@ class Settings:
             ) from exc
 
         user_agent = os.environ.get("COMUNIO_USER_AGENT", "").strip() or DEFAULT_USER_AGENT
-        state_dir = os.environ.get("COMUNIO_STATE_DIR", "").strip() or DEFAULT_STATE_DIR
 
         return cls(
             username=username,
             password=password,
             timezone=timezone,
             user_agent=user_agent,
-            state_dir=state_dir,
         )
-
-    @property
-    def proposals_path(self) -> Path:
-        return Path(self.state_dir) / "proposals.sqlite3"
 
     def tz_offset_hours(self, now: datetime | None = None) -> int:
         """UTC offset the API expects as `tzoffset` on login.

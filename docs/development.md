@@ -15,7 +15,6 @@ src/comunio_mcp/
 ├── metadata.py           server name and version, shared by server and tools
 ├── config.py             settings read from the environment
 ├── context.py            the lifespan object every tool reaches through ctx
-├── proposals.py          the SQLite store proposals wait in
 ├── check_auth.py         the auth-check entry point, not part of the server
 ├── server.py             the MCPServer instance and tool registration
 ├── comunio/              the Comunio side: client, auth, session, one module per endpoint

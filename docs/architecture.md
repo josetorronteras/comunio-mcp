@@ -137,7 +137,9 @@ their properties are not negotiable, whatever the approval design:
 ### Consequences
 
 - **No proposal store, no `proposal_id`, no expiry, no audit trail.** `proposals.py` and
-  `COMUNIO_STATE_DIR` exist only to serve a design that is gone.
+  `COMUNIO_STATE_DIR` were deleted with the design they served.
+- **The server holds no state on disk at all**, so there is nothing to mount a volume for and
+  nothing left behind when the container exits.
 - The server keeps no state between calls at all, which is what a stateless protocol was asking for
   in the first place.
 - Every tool must state in its description whether it mutates state — that description is what the
@@ -229,8 +231,6 @@ Rules:
   unknown. Nothing above depends on the answer.
 - **Transport.** stdio is the natural fit for a personal server, and it is also what makes
   environment-variable credentials the documented approach. Streamable HTTP would drag in OAuth 2.1.
-- **Removing the proposal store.** `proposals.py`, its tests, the lifespan wiring and
-  `COMUNIO_STATE_DIR` are still in the tree, serving nothing. They go in their own change.
 - **Whether `place_bid` should refuse a bid on the manager's own listing.** It is the last refusal
   in the tree asserting a rule nobody has measured Comunio to have. It is almost certainly
   harmless — bidding against yourself is not a move — but "almost certainly" is what the other
