@@ -365,29 +365,35 @@ The bid does not take effect straight away: it waits for the next transfer round
 `get_market` reports as `closes_at`. Until then `change_bid` and `withdraw_bid` can still
 reach it. That is why it is annotated `destructive_hint=false`.
 
-### Three refusals before anything is sent
+### Two refusals before anything is sent
 
 | Refused when | Why |
 | --- | --- |
-| The player is not on the market | Nothing to bid on |
+| The player is not on the market | There is nothing to bid on, and no listing to name |
 | The player is one of the manager's own listings | Not a move |
-| The amount exceeds available **credit** | It cannot be paid |
 
-The credit check reads `credit` from `get_offers`, **not** `budget` from `get_account`.
-The league's credit factor makes them different numbers, and sizing a bid against the
-budget understates what is possible.
+Both are tested by asserting no request left the process, not by the wording of the error.
 
-It also subtracts the manager's **other open bids**, which Comunio's own `credit` does
-not. Measured directly: placing a bid of 170,001 left `credit` reported as the same
-29,749,200 it was before. Without accounting for them, five bids of ten million each
-would every one pass a check against thirty million of credit. `credit_committed` says how
-much is already promised, and `credit_after` assumes every open bid wins.
+### Credit is reported, not enforced
 
-Changing a bid excludes the bid being changed, since the old amount is replaced rather
-than added to.
+**The amount is not checked against credit.** Comunio enforces its own limit and says so
+per item — `{"status": "ERROR", "message": "Credit exceeded"}` — so a bid Comunio would
+accept is never refused here. A check in this server could only be a second opinion on a
+number that may have moved since it was read.
 
-Each refusal is tested by asserting no request left the process, not by the wording of the
-error.
+What is reported is the part Comunio's own figure hides. `credit` from `get_offers` is not
+`budget` from `get_account`: the league's credit factor makes them different numbers, and
+budget understates what is possible. And `credit` does **not** subtract bids already
+outstanding — measured directly, placing a bid of 170,001 left `credit` reported as the
+same 29,749,200 it was before. Five bids of ten million each therefore all look affordable
+against thirty million.
+
+So `credit_committed` says how much is already promised and `credit_after` assumes every
+open bid wins. Saying what the number leaves out is this server's job; deciding the
+manager may not bid anyway is not.
+
+Changing a bid excludes the bid being changed from `credit_committed`, since the old
+amount is replaced rather than added to.
 
 ### Read `ok`, never the outer status
 
@@ -418,14 +424,14 @@ for the transfer round and can still be pulled with `withdraw_bid`, hence
 cannot end up pointing at a different player than the bid it edits — a mistake that would
 otherwise be one wrong number away and invisible in the confirmation.
 
-### The same three refusals
+### The same two refusals
 
-Unknown id, an offer *for* one of the manager's players rather than a bid of theirs, and
-an amount beyond available credit. All refused before any request is sent, all tested by
-asserting nothing left the process.
+Unknown id, and an offer *for* one of the manager's players rather than a bid of theirs.
+Both refused before any request is sent, both tested by asserting nothing left the
+process.
 
-Whether `credit` already accounts for bids currently outstanding is not documented, so the
-check compares against the figure as reported.
+The amount is not checked against credit, for the same reason as `place_bid`: Comunio
+enforces it and answers per item.
 
 ## `accept_offer`
 
@@ -496,11 +502,23 @@ Comunio permits fielding someone who is injured or suspended, so the tool does t
 come back in `unavailable` instead. Refusing would be inventing a rule the game does not
 have.
 
+### Neither is playing out of position
+
+The same reasoning, applied consistently. A defender can be named among the strikers: they
+are reported in `out_of_position` and Comunio decides, with `ok` carrying the answer.
+
+The tool used to refuse this. It was the only positional rule in the server, it was never
+measured against the game, and a league that lets you field a suspended keeper is unlikely
+to care. When the game's answer is unknown, the game answers.
+
 ### Refused before anything is sent
 
-An unknown formation · more players than the formation has room for · a player not in the
-squad · the same player twice · someone put in a position they do not play. Each is tested
-by asserting nothing left the process.
+An unknown formation · a player not in the squad · the same player twice · **more players
+than the formation has room for**. Each is tested by asserting nothing left the process.
+
+The last one is not a rule of the game but a limit of the request: `slot_plan` has exactly
+that many slots for the position, so extras would be dropped in silence and the caller
+would be told a lineup was set that never was.
 
 Annotated `idempotent_hint=true` — sending the same lineup twice leaves the same lineup —
 and `destructive_hint=false`, since it can be set again until the matchday starts.

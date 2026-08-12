@@ -200,14 +200,24 @@ def test_too_many_players_for_the_formation_is_refused():
     assert handler.writes == []
 
 
-def test_a_player_out_of_position_is_refused():
+def test_a_player_out_of_position_is_reported_not_refused():
+    # Comunio lets a manager field the injured and the suspended, so it is not this
+    # server's place to invent a positional rule the game may not have. It goes, and the
+    # result says who was played out of position.
     handler = FakeApi()
 
-    with pytest.raises(LineupError) as excinfo:
-        _run(handler, lambda s, c: set_lineup(s, c, tactic="343", strikers=[DEF_1]))
+    result = _run(handler, lambda s, c: set_lineup(s, c, tactic="343", strikers=[DEF_1]))
 
-    assert "cannot be played at striker" in str(excinfo.value)
-    assert handler.writes == []
+    assert handler.writes != []
+    assert result.out_of_position == ["Defensa Uno is a defender played at striker"]
+
+
+def test_a_lineup_in_position_reports_nothing_out_of_position():
+    handler = FakeApi()
+
+    result = _run(handler, lambda s, c: set_lineup(s, c, tactic="343", keeper=KEEPER_ID))
+
+    assert result.out_of_position == []
 
 
 def test_the_same_player_twice_is_refused():

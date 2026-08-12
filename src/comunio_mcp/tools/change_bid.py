@@ -31,8 +31,9 @@ def register(mcp: MCPServer) -> None:
         Like a new bid, the change waits for the next transfer round and can still be
         pulled with `withdraw_bid` until then.
 
-        Refused before anything is sent if the id is unknown, if it belongs to an offer
-        *for* one of the manager's players, or if the new amount exceeds available credit.
+        Refused before anything is sent if the id is unknown or if it belongs to an offer
+        *for* one of the manager's players. The new amount is not checked against credit:
+        Comunio enforces that itself and answers per item, so read `ok` and `message`.
 
         Check `ok` and `message` in the result rather than assuming success.
         """

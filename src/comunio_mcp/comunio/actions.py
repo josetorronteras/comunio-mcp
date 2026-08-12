@@ -147,11 +147,10 @@ async def place_bid(
 ) -> BidResult:
     """Bid for a player on the market.
 
-    Checked before anything is sent, because this commits money:
-
-    * the player is actually on the market, and is not one of the manager's own;
-    * the bid fits within **credit**, which is what can really be spent — not the budget
-      `get_account` reports, which the league's credit factor lets it exceed.
+    The amount is **not** checked against credit. Comunio enforces its own limit and says
+    so per item ("Credit exceeded"), and a check here could only ever be a second opinion
+    on a number that may have moved since it was read. What credit is worth is reported
+    instead: see `_committed`.
     """
     if price <= 0:
         raise ValueError("A bid must be greater than zero")
@@ -169,7 +168,6 @@ async def place_bid(
 
     offers = await fetch_offers(session, client)
     committed = _committed(offers)
-    _check_affordable(price, credit=offers.credit, committed=committed)
 
     url = await session.link(OFFERS_LINK)
     payload = await client.post(
@@ -191,24 +189,20 @@ async def place_bid(
 def _committed(offers: Offers, *, excluding: int | None = None) -> int:
     """What the manager's other open bids already promise to spend.
 
-    Comunio's `credit` does **not** subtract these: placing a bid and reading credit again
-    returns the same number. Measured directly — a bid of 170,001 left credit unchanged at
-    29,749,200. Without this, five bids of ten million each would every one pass a check
-    against thirty million of credit.
+    Reported, never enforced. Comunio's `credit` does **not** subtract these: placing a bid
+    and reading credit again returns the same number — measured directly, a bid of 170,001
+    left credit unchanged at 29,749,200. So `credit` alone reads as more spending power
+    than five bids of ten million against thirty million of credit really leave.
+
+    That is a fact about the number Comunio reports, and saying it is this server's job.
+    Deciding that the manager may not bid anyway is not: Comunio allows the bid, and a
+    stricter rule here would refuse a move the game accepts.
     """
     return sum(
         offer.price
         for offer in offers.offers
         if offer.direction == OUTGOING and offer.offer_id != excluding
     )
-
-
-def _check_affordable(price: int, *, credit: int, committed: int) -> None:
-    if price + committed > credit:
-        detail = f" plus {committed:,} already promised to other open bids" if committed else ""
-        raise ValueError(
-            f"A bid of {price:,}{detail} exceeds the available credit of {credit:,}"
-        )
 
 
 def parse_bid_result(
@@ -249,7 +243,8 @@ async def change_bid(
     change cannot quietly end up pointing at a different player.
 
     Guarded like `withdraw_bid`: an id that belongs to an offer *for* one of the manager's
-    players is not theirs to change.
+    players is not theirs to change. The new amount is not checked against credit —
+    Comunio enforces that itself.
     """
     if price <= 0:
         raise ValueError("A bid must be greater than zero")
@@ -266,9 +261,9 @@ async def change_bid(
             f"Offer {offer_id} is an offer for the manager's own player, not one of their "
             "bids. Only the manager's own bids can be changed."
         )
-    # The bid being edited is replaced, so it must not be counted against itself.
+    # The bid being edited is replaced rather than added to, so it is not counted against
+    # itself in what the result reports.
     committed = _committed(offers, excluding=offer_id)
-    _check_affordable(price, credit=offers.credit, committed=committed)
 
     url = await session.link(OFFERS_LINK)
     payload = await client.post(

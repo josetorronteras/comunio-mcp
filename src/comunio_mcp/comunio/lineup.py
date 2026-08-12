@@ -133,6 +133,11 @@ async def set_lineup(
         empty_slots=empty,
         penalty_points=empty * POINTS_PER_EMPTY_SLOT,
         unavailable=[slot.player for slot in fielded if slot.status != AVAILABLE],
+        out_of_position=[
+            f"{slot.player} is a {by_id[slot.player_id].position} played at {slot.position}"
+            for slot in fielded
+            if by_id[slot.player_id].position != slot.position
+        ],
     )
 
 
@@ -151,13 +156,10 @@ def _validate(chosen: dict[str, list[int]], *, tactic: str, by_id: dict[int, Any
         raise LineupError(f"Not in the squad: {sorted(missing)}")
 
     for position, ids in chosen.items():
+        # Not a rule of the game — a limit of the request. `slot_plan` has exactly this
+        # many slots for the position, so anything beyond them would be dropped in
+        # silence, and the caller would be told a lineup was set that never was.
         if len(ids) > allowed[position]:
             raise LineupError(
                 f"A {tactic} has room for {allowed[position]} at {position}, not {len(ids)}"
             )
-        for player_id in ids:
-            actual = by_id[player_id].position
-            if actual != position:
-                raise LineupError(
-                    f"{by_id[player_id].name} is a {actual} and cannot be played at {position}"
-                )

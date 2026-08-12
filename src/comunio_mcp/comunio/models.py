@@ -633,6 +633,11 @@ class LineupResult(BaseModel):
     unavailable: list[str] = Field(
         description="Fielded players who were not ACTIVE — injured, suspended and the like"
     )
+    out_of_position: list[str] = Field(
+        default_factory=list,
+        description="Fielded players put in a slot other than the position they play. "
+        "Reported, not refused: Comunio decides whether it accepts them",
+    )
 
 
 class WatchedPlayer(BaseModel):
