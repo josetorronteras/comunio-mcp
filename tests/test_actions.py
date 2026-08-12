@@ -397,23 +397,26 @@ def test_a_bid_is_placed_with_the_documented_body():
     assert result.credit_after == 29_475_000 - 810_000
 
 
+#: An outer OK wrapping a refusal. Comunio's own answer when a bid is beyond credit.
+BID_REJECTED = {
+    "status": "OK",
+    "response": [
+        {
+            "offerid": None,
+            "tradableid": 3871,
+            "price": 810_000,
+            "type": "NEW",
+            "status": "ERROR",
+            "message": "Credit exceeded",
+            "processImmediately": False,
+        }
+    ],
+}
+
+
 def test_a_rejected_bid_is_read_from_the_per_item_status():
     # The outer status says OK while the bid itself was refused.
-    rejected = {
-        "status": "OK",
-        "response": [
-            {
-                "offerid": None,
-                "tradableid": 3871,
-                "price": 810_000,
-                "type": "NEW",
-                "status": "ERROR",
-                "message": "Credit exceeded",
-                "processImmediately": False,
-            }
-        ],
-    }
-    handler = _bidding_api(add_response=rejected)
+    handler = _bidding_api(add_response=BID_REJECTED)
 
     result = _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
 
@@ -423,15 +426,19 @@ def test_a_rejected_bid_is_read_from_the_per_item_status():
     assert result.credit_after == 29_475_000
 
 
-def test_a_bid_beyond_credit_is_refused_before_anything_is_sent():
-    # Credit, not budget: the league's credit factor makes them different numbers.
-    handler = _bidding_api(offers={"credit": 500_000, "items": []})
+def test_a_bid_beyond_credit_is_still_sent_and_comunio_answers():
+    # Comunio enforces its own limit and reports it per item. Refusing here would be a
+    # second opinion on a number that may have moved since it was read.
+    handler = _bidding_api(
+        offers={"credit": 500_000, "items": []},
+        add_response=BID_REJECTED,
+    )
 
-    with pytest.raises(ValueError) as excinfo:
-        _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
+    result = _run(handler, lambda s, c: place_bid(s, c, 3871, 810_000))
 
-    assert "exceeds the available credit" in str(excinfo.value)
-    assert handler.writes == []
+    assert handler.writes != []
+    assert result.ok is False
+    assert result.message == "Credit exceeded"
 
 
 def test_bidding_for_a_player_who_is_not_on_the_market_is_refused():
@@ -532,16 +539,15 @@ def test_changing_an_incoming_offer_is_refused_before_anything_is_sent():
     assert handler.writes == []
 
 
-def test_changing_beyond_credit_is_refused_before_anything_is_sent():
+def test_changing_beyond_credit_is_still_sent_and_comunio_answers():
     handler = _changing_api(
         offers={**_offers_payload(offerer_id=int(USER_ID)), "credit": 500_000}
     )
 
-    with pytest.raises(ValueError) as excinfo:
-        _run(handler, lambda s, c: change_bid(s, c, 9000003, 810_001))
+    result = _run(handler, lambda s, c: change_bid(s, c, 9000003, 810_001))
 
-    assert "exceeds the available credit" in str(excinfo.value)
-    assert handler.writes == []
+    assert handler.writes != []
+    assert result.price == 810_001
 
 
 def test_changing_an_unknown_offer_is_refused_before_anything_is_sent():
@@ -692,19 +698,19 @@ def _outgoing(offer_id, price):
     return payload["items"][0]
 
 
-def test_other_open_bids_count_against_the_credit():
-    # Comunio's `credit` does not subtract pending bids — measured directly. Without
-    # accounting for them, five bids of ten million each would all pass a check against
-    # thirty million.
+def test_other_open_bids_are_reported_but_do_not_block_the_bid():
+    # Comunio's `credit` does not subtract pending bids — measured directly. Saying so is
+    # this server's job; refusing the bid over it is not, because Comunio allows it.
     handler = _bidding_api(
         offers={"credit": 1_000_000, "items": [_outgoing(9000101, 900_000)]}
     )
 
-    with pytest.raises(ValueError) as excinfo:
-        _run(handler, lambda s, c: place_bid(s, c, 3871, 200_000))
+    result = _run(handler, lambda s, c: place_bid(s, c, 3871, 200_000))
 
-    assert "already promised to other open bids" in str(excinfo.value)
-    assert handler.writes == []
+    assert handler.writes != []
+    assert result.ok is True
+    # 200,000 + 900,000 promised is over the million of credit, and it still goes.
+    assert result.credit_committed == 900_000
 
 
 def test_credit_after_subtracts_the_other_bids_too():

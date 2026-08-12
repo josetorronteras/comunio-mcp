@@ -29,12 +29,15 @@ def register(mcp: MCPServer) -> None:
         `change_bid` or pulled with `withdraw_bid`.
 
         Sizing the bid: compare against `credit` from `get_offers`, not `budget` from
-        `get_account` — the league's credit factor makes them different numbers. What
-        players actually sell for is in `get_transfers`; `quoted_price` is only an asking
-        price.
+        `get_account` — the league's credit factor makes them different numbers. Comunio's
+        `credit` does **not** subtract bids already outstanding, so check
+        `credit_committed` in the result for what is already promised. What players
+        actually sell for is in `get_transfers`; `quoted_price` is only an asking price.
 
-        Refused before anything is sent if the player is not on the market, if they are
-        one of the manager's own listings, or if the amount exceeds available credit.
+        The amount is **not** checked against credit here. Comunio enforces its own limit
+        and answers "Credit exceeded", so a bid it would accept is never refused by this
+        tool. Refused before anything is sent only if the player is not on the market or
+        is one of the manager's own listings.
 
         Check `ok` and `message` in the result. Comunio can report overall success while
         rejecting the bid itself.

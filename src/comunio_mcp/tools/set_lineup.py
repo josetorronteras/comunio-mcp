@@ -46,9 +46,13 @@ def register(mcp: MCPServer) -> None:
         so they are not refused, but the result lists them under `unavailable`. Check
         `status` in `get_squad` before choosing.
 
+        A player can likewise be put in a slot they do not normally play. That is Comunio's
+        call to accept or refuse, not this tool's: the result lists them under
+        `out_of_position`, and `ok` says what Comunio decided.
+
         Refused before anything is sent if the formation is not one Comunio accepts, if
-        there are more players than the formation has room for, if a player is not in the
-        squad, if one appears twice, or if someone is put in a position they do not play.
+        there are more players than the formation has room for (the extras would be
+        dropped in silence), if a player is not in the squad, or if one appears twice.
 
         The lineup can be set again until the matchday starts.
         """

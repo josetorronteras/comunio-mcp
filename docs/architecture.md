@@ -231,8 +231,7 @@ Rules:
   environment-variable credentials the documented approach. Streamable HTTP would drag in OAuth 2.1.
 - **Removing the proposal store.** `proposals.py`, its tests, the lifespan wiring and
   `COMUNIO_STATE_DIR` are still in the tree, serving nothing. They go in their own change.
-- **Two guards that overstep Decision 1**, to be re-examined against the rule above:
-  `place_bid` and `change_bid` refuse an amount over available credit *after subtracting other open
-  bids* — a stricter rule than Comunio's own, which Comunio would have answered for itself; and
-  `set_lineup` refuses a player placed in a position they do not play, which the game may well
-  permit. Both were written when the server was meant to judge.
+- **Whether `place_bid` should refuse a bid on the manager's own listing.** It is the last refusal
+  in the tree asserting a rule nobody has measured Comunio to have. It is almost certainly
+  harmless — bidding against yourself is not a move — but "almost certainly" is what the other
+  three said.
