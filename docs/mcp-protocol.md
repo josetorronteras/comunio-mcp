@@ -34,9 +34,10 @@ Servers must implement a mandatory **`server/discover`** RPC returning supported
 capabilities and identity. Clients *may* call it first, or just fire a request and handle an
 `UnsupportedProtocolVersionError`.
 
-Practical consequence for us: **the server cannot rely on per-connection memory.** Anything we want
-to remember between calls (a pending proposal, a session with Comunio) needs explicit storage, not
-connection state.
+Practical consequence for us: **the server cannot rely on per-connection memory.** Anything it
+needed to remember between calls would need explicit storage rather than connection state — which
+is one reason it remembers nothing between calls. Each tool is a round trip to Comunio and back.
+The session with Comunio is a process-lifetime cache, not state a call depends on.
 
 ### Versioning
 
