@@ -231,7 +231,11 @@ Rules:
   unknown. Nothing above depends on the answer.
 - **Transport.** stdio is the natural fit for a personal server, and it is also what makes
   environment-variable credentials the documented approach. Streamable HTTP would drag in OAuth 2.1.
-- **Whether `place_bid` should refuse a bid on the manager's own listing.** It is the last refusal
-  in the tree asserting a rule nobody has measured Comunio to have. It is almost certainly
-  harmless — bidding against yourself is not a move — but "almost certainly" is what the other
-  three said.
+Settled since, and kept here because the reasoning is the useful part:
+
+- **`place_bid` keeps refusing a bid on the manager's own listing** (decided 2026-08-12). It is the
+  one refusal left that asserts a rule nobody has measured Comunio to have, so it was worth asking
+  about. It stays because it fails the *other* half of the test rather than the credit one: bidding
+  against yourself is not a move the game has an answer for, it is a call that cannot have been
+  meant. Nothing is lost by refusing it and a confusing round trip is avoided. If Comunio ever turns
+  out to accept it as something meaningful, this is the line to delete.
