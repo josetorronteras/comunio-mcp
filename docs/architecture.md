@@ -5,126 +5,141 @@ what future changes need to argue against.
 
 Protocol background lives in [mcp-protocol.md](mcp-protocol.md); this document assumes it.
 
+## Scope
+
+What this repository ships is **one MCP server**, and nothing else. No agent skills, no prompt
+packs, no companion CLI, no client-side helpers.
+
+The shape is a single line: **client ↔ MCP ↔ Comunio.** The server is the middle segment and only
+the middle segment. Everything that happens before the call — deciding a move is a good one, asking
+the user whether to go ahead — happens in the client, which has the model and the conversation.
+Everything after it is Comunio's. A skill or a bundled prompt lives in the first segment, tied to
+one host and invisible to the next client that connects; it is not this project's to ship.
+
 ---
 
-## Decision 1 — The server calculates, the host agent judges
+## Decision 1 — The server translates, it does not decide
 
-**Status:** accepted, 2026-08-08.
+**Status:** revised 2026-08-12. Supersedes "the server calculates, the host agent judges"
+(2026-08-08).
 
 ### Context
 
 MCP's `sampling` primitive — a server asking the host's LLM to reason on its behalf — is
 **deprecated** as of protocol version `2026-07-28`. The only remaining way for the server itself to
-"reason" would be to embed an LLM SDK, which means a second API key, paying for tokens twice, and a
-model reasoning without any of the user's conversational context.
+"reason" would be to embed an LLM SDK: a second API key, tokens paid for twice, and a model
+reasoning without any of the user's conversational context.
+
+The original decision drew the line at **deterministic vs. soft judgement** and put everything
+deterministic in the server — including metrics, scoring and lineup optimisation. That line was
+drawn too far out. Optimisation is deterministic *and* still a decision: choosing an XI means
+choosing a criterion, and the criterion is the interesting part. A server that picks it has decided
+for the user in a way no annotation can express.
 
 ### Decision
 
-**The server contains no LLM.** It is a plain Python process. Judgement stays in the host agent
-(Claude Desktop, Claude Code, …), which already has a model and already has the conversation.
+**The server contains no LLM, and no strategy either.** It is an adapter over Comunio's API: it
+makes Comunio callable and its answers legible, and it stops there.
 
-This is not the same as making the server dumb. Everything deterministic belongs in the server,
-where it is testable:
+The line is not "is this deterministic?" but:
 
-- Budget arithmetic — how much can be bid without going broke.
-- Formation validation — a 4-3-3 has four defenders, not five.
-- Metrics — expected points, averages, form, price per point.
-- Availability — suspended and injured players cannot be fielded.
-- Optimisation — given a scoring criterion, the XI that maximises expected points.
+> **Could the client build a correct request, or read the answer correctly, without this?**
 
-What the agent adds on top is the soft judgement: *"Lewandowski has blanked three weeks running but
-he is playing the bottom club, I would keep him."*
+If no, it is adapter work and belongs here:
+
+- **Protocol translation.** Comunio's lineup endpoint takes numbered slots `"1"`–`"11"` and never
+  says what a number means. Without `slot_plan()` the endpoint is not callable at all.
+- **Normalisation.** One endpoint encodes "no data" five different ways (`points: "-"`,
+  `recommendedprice: -1`, `pos: ""`, …). The client should not have to know any of them.
+- **Fixing broken fields.** The standings payload sends `position: 0` for every row, so rank is
+  derived from the order Comunio returns.
+- **Identity resolution.** `is_me`, `is_mine` and an offer's `direction` need the signed-in
+  manager's id, which only this server holds.
+- **Magic numbers.** Seller id `1` means Comunio itself. That belongs behind `from_computer`.
+- **Allowlisting.** Raw responses carry email addresses, invitation codes and other managers'
+  account flags. Models declare only what is safe to expose.
+
+If yes, it belongs to the client:
+
+- Which XI is best, and by what criterion.
+- Whether a price is worth paying, whether a rival is a threat, when to sell.
+- Whether a legal move is a wise one.
 
 ### Consequences
 
-- `propose_*` tools are **deterministic optimisers**, not LLM calls. They return a candidate move
-  *and the metrics that justify it*, so the agent can argue with the result.
-- Read tools return structured, metric-rich data rather than prose — the agent does the narrating.
 - No LLM API key, no GPU, no inference cost anywhere in this project.
-- The interesting logic is unit-testable without mocking a model.
+- **No optimiser.** There is no "best lineup" tool and there is not meant to be one. The server
+  hands over the squad, the fixtures and the scoring history; the client picks.
+- Read tools return structured data, not prose and not recommendations.
+- Derived fields have to justify themselves against the question above. Some already in the tree do
+  so only weakly — see *Still open*.
 
 ---
 
 ## Decision 2 — Approval in cascade
 
-**Status:** accepted, 2026-08-08. One sub-policy still open (see below).
+**Status:** revised 2026-08-12. Supersedes "approval in cascade" (2026-08-08).
 
 ### Context
 
-MCP tools are **model-controlled**: the LLM decides on its own when to call them. Nothing in the
-protocol stops a model from invoking `execute_bid`. Three mechanisms could stand between that
-decision and real money being spent, and none is sufficient alone:
+MCP tools are **model-controlled**: the LLM decides on its own when to call them, and nothing in the
+protocol stops it from spending money. The original decision answered that inside the server, with a
+`propose_*` / `execute_*` split: an execution accepted only a `proposal_id` issued by a matching
+proposal, and proposals were persisted in SQLite because MCP is stateless as of `2026-07-28`.
 
-| Mechanism | Strength | Weakness |
-| --- | --- | --- |
-| Host approval dialog | Free, works everywhere | Generic, often shows raw JSON, behaviour varies per client, and one "always allow" disables it forever. Not under our control. |
-| `elicitation` | Shows the real operation, enforced by us, cannot be permanently bypassed | Requires the client to declare the `elicitation` capability |
-| `propose` / `execute` split | Works in any client | Worthless on its own: the model can call `execute_*` directly and skip the proposal |
+That reasoning had a hole in it. The store existed to **carry state between two tool calls** — but
+in a client ↔ MCP ↔ Comunio line, what carries state between two calls is the client. The user reads
+the figures in the conversation and answers there. The proposal store was the server rebuilding a
+conversation it cannot see, from a frozen summary, and the `proposal_id` was never the protection:
+it was glue between two calls that only existed because it was glue.
+
+Meanwhile the eight write tools that were actually built put the guarantee somewhere better — in
+each tool, against the real API — and shipped without any of it.
 
 ### Decision
 
-Use **all three, stacked**:
+**Approval is the host's, and it happens outside this project.** The server publishes what a tool
+does and does it. It does not run a confirmation ceremony.
 
-1. **The host dialog** comes for free on top of everything. We rely on it for nothing.
-2. **`execute_*` tools only accept a `proposal_id`** issued by the matching `propose_*` tool. An
-   execution cannot exist without a proposal the user has seen. `execute_*` never re-decides
-   anything: it applies a stored, validated proposal.
-3. **`execute_*` asks for confirmation via `elicitation`** when the client supports it, showing the
-   real figures ("Bid €4,500,000 for Vinicius Jr. You would have €1.2M left. Confirm?").
+What the server is still responsible for:
 
-Since MCP is stateless as of `2026-07-28`, proposals cannot live in connection memory. They are
-**persisted** with an expiry, which also gives us an audit trail: what was proposed, when, with what
-numbers, and whether it was executed.
+1. **Declaring effects.** Every mutating tool is annotated `read_only_hint=False`, and `accept_offer`
+   — the only irreversible action — is the only one annotated `destructive_hint=True`. Descriptions
+   say in words that the tool spends money or changes the team. Annotations and descriptions are the
+   interface the host's approval flow is built on; getting them wrong disarms it.
+2. **Refusing calls that are wrong, not calls that are unwise.** A request aimed at the wrong
+   operation is a bug the client cannot see. `game:offer:withdraw` and `game:offer:decline` resolve
+   to the **same path with the same body**, so an id belonging to somebody else's offer would
+   *decline* it instead of withdrawing a bid — two different outcomes from one call. Looking the
+   offer up first is the only way that call can be correct.
+3. **Reporting what happened.** Never assuming it.
 
-### How proposals are stored
+What the server stops doing: refusing a legal move because it judges it a bad one. That is
+Decision 1 applied to the write side.
 
-`proposals.py` keeps them in SQLite under `COMUNIO_STATE_DIR`. What is stored is the
-*whole* proposal — the payload and the summary the user was shown — so an execution has no
-freedom to differ from what was approved.
+`elicitation` goes with the rest. It is a real MCP capability and it would fit the wire shape, but
+confirming with the user is the client's job in this design, not a second place to do it.
 
-Two properties carry the weight:
+### What the write API forces
 
-- **A proposal can be claimed at most once.** The claim is a single conditional `UPDATE`
-  that moves `claimed_at` away from `NULL`. A repeated or retried execution loses that
-  race rather than applying the same move twice. The checks before it are advisory; the
-  `UPDATE` is what actually decides.
-- **A proposal expires.** A lineup is meaningless after kick-off and a bid after the
-  transfer round, so a stale proposal is refused rather than applied late.
+The market write endpoints are captured and verified in [comunio-api.md](comunio-api.md). Three of
+their properties are not negotiable, whatever the approval design:
 
-A claim also checks the *kind*, so `execute_lineup` cannot apply a bid proposal.
-
-Outcomes are recorded against the proposal after the fact. Purging removes stale
-proposals that were never executed and keeps the executed ones: the audit trail outlives
-the proposal's usefulness.
-
-### Open sub-policy
-
-What `execute_*` does when the client does **not** support `elicitation`: refuse outright, or fall
-back to the `proposal_id` check plus the host dialog. To be decided — it needs checking which
-clients actually implement `elicitation` against spec `2026-07-28`.
-
-### What the write API forces on top
-
-The market write endpoints have now been captured and verified (see
-[comunio-api.md](comunio-api.md)). Three of their properties constrain the execute layer
-before a line of it is written:
-
-- **Accepting an offer is instant and irreversible** (`processImmediately: true`), while a
-  bid is queued until the transfer round and can be withdrawn. The confirmation before an
-  accept therefore has to be stronger than the one before a bid — there is nothing to undo
-  it with.
-- **Responses carry a per-item status inside an outer one.** An outer `OK` with a failed
-  item inside is possible, so an `execute_*` must report what each item actually did.
-  Reporting success from the outer field is how a tool claims to have placed a bid it did
-  not place.
-- **Writes must never be auto-retried.** The client retries once on a 401, which is safe
-  for `GET` and would double-apply a bid.
+- **Accepting an offer is instant and irreversible** (`processImmediately: true`), while a bid is
+  queued until the transfer round and can be withdrawn. That asymmetry is why `accept_offer` carries
+  `destructive_hint=True` alone.
+- **Responses carry a per-item status inside an outer one.** An outer `OK` wrapping a failed item is
+  a real response. Reporting success from the outer field is how a tool claims to have placed a bid
+  it did not place, so `ok` always comes from the per-item status.
+- **Writes must never be auto-retried.** `ComunioClient` retries once on a 401, which is safe for
+  `GET` and would place a bid twice on a `POST`.
 
 ### Consequences
 
-- Persistence is a hard requirement from day one, not a later optimisation.
-- Proposals need an expiry: a lineup proposal is meaningless after the deadline, and a bid is
-  meaningless once the market rolls over.
+- **No proposal store, no `proposal_id`, no expiry, no audit trail.** `proposals.py` and
+  `COMUNIO_STATE_DIR` exist only to serve a design that is gone.
+- The server keeps no state between calls at all, which is what a stateless protocol was asking for
+  in the first place.
 - Every tool must state in its description whether it mutates state — that description is what the
   model reads.
 
@@ -159,9 +174,8 @@ from the documentation:
 - `from mcp.server import MCPServer` — works.
 - **`mcp.server.fastmcp` is gone.** Not renamed: `ModuleNotFoundError`. The 1.x code style
   simply does not run on 2.0.
-- `mcp.server.elicitation` exists, exposing `elicit_with_validation` and `elicit_url`, and
-  `Elicit` is available for resolvers. **Decision 2's approval design is supported by the
-  SDK.**
+- `mcp.server.elicitation` exists, exposing `elicit_with_validation` and `elicit_url`. Recorded
+  because it was verified, not because it is used: Decision 2 leaves confirmation to the host.
 - The SDK depends on `httpx2`, not `httpx`.
 - Model fields are snake_case in Python and camelCase on the wire:
   `ToolAnnotations(read_only_hint=True)` is serialised as `"readOnlyHint": true`.
@@ -186,22 +200,26 @@ decision needs revisiting — that is the risk knowingly taken here.
 
 ---
 
-## Tool layers
+## Tool kinds
 
-Derived from the two decisions above:
+Two, and the boundary is the tool's name:
 
-| Layer | Examples | Contract |
+| Kind | Naming | Contract |
 | --- | --- | --- |
-| **Read** | `get_squad`, `get_market`, `get_lineup_deadline` | Query only. Never mutates. Returns structured data plus metrics. |
-| **Propose** | `propose_lineup`, `propose_bid` | Deterministic. Computes a candidate, persists it, returns it with a `proposal_id` and the numbers behind it. Touches no write endpoint. |
-| **Execute** | `execute_lineup`, `execute_bid` | Takes a `proposal_id`. Confirms via elicitation where available. Applies the stored proposal to Comunio. Decides nothing. |
+| **Read** | `get_*` | Query only. Never mutates. `read_only_hint=True`. Always safe to call. |
+| **Write** | anything else | Changes the manager's team or spends their money. `read_only_hint=False`, effects declared in the annotations and stated in the description. Validates the call, sends it, reports what came back. |
 
 Rules:
 
-- A `propose_*` tool never chains internally into its `execute_*` counterpart.
-- Nothing that spends money, changes the lineup or touches the market runs without a proposal the
-  user has seen.
-- When it is unclear which layer a new tool belongs to, ask before implementing it.
+- **A read tool never writes, and the name is the promise.** `get_` is what the server's
+  `instructions` tell the host to trust; a mutating `get_*` would break every client at once.
+- **A write tool sends one operation.** No chaining, no "while I'm here". If two things must happen,
+  the client makes two calls and sees both results.
+- **Refuse malformed and misdirected calls, not unwise ones.** The test is whether the request could
+  reach the wrong endpoint or the wrong player, not whether it is a good idea.
+- **Never invent a rule Comunio does not have.** If the game allows it, the tool allows it and lets
+  Comunio answer.
+- Every tool is documented in [tools.md](tools.md) in the same change that implements it.
 
 ---
 
@@ -209,7 +227,12 @@ Rules:
 
 - **How to talk to Comunio.** Official API, unofficial API or scraping — the largest remaining
   unknown. Nothing above depends on the answer.
-- **Where proposals are stored.** SQLite is the obvious default; not yet decided.
 - **Transport.** stdio is the natural fit for a personal server, and it is also what makes
   environment-variable credentials the documented approach. Streamable HTTP would drag in OAuth 2.1.
-- **Client support for `elicitation`**, which settles the open sub-policy in Decision 2.
+- **Removing the proposal store.** `proposals.py`, its tests, the lifespan wiring and
+  `COMUNIO_STATE_DIR` are still in the tree, serving nothing. They go in their own change.
+- **Two guards that overstep Decision 1**, to be re-examined against the rule above:
+  `place_bid` and `change_bid` refuse an amount over available credit *after subtracting other open
+  bids* — a stricter rule than Comunio's own, which Comunio would have answered for itself; and
+  `set_lineup` refuses a player placed in a position they do not play, which the game may well
+  permit. Both were written when the server was meant to judge.

@@ -168,21 +168,22 @@ From the official build-server tutorial:
 
 ## 6. What this means for Comunio MCP
 
-Open questions this reading raises, to be resolved in `docs/architecture.md`:
+Questions this reading raised. The first three are settled in
+[architecture.md](architecture.md); the fourth still stands.
 
-1. **Who does the reasoning?** With sampling deprecated, a `propose_*` tool cannot borrow the host's
-   LLM. Either the proposal is computed deterministically by code we write, or the reasoning stays
-   in the host agent and our tools only serve data.
-2. **How is approval enforced?** Two mechanisms, not mutually exclusive: the host's own tool-call
-   approval dialog (works everywhere, but is a generic "allow this tool?" prompt), and server-side
-   `elicitation` (shows the actual bid details and is enforced by us, but needs client support).
-3. **Tools or resources for read data?** Squad and market fit the resource model, but resources are
-   application-controlled and unevenly supported by clients. Tools are the safe default; resources
-   can be added on top.
-4. **Credentials.** stdio + environment variables is the documented path, and elicitation form mode
+1. **Who does the reasoning?** Settled: the host. With sampling deprecated the server cannot borrow
+   the host's LLM, and it does not try to replace it either — the tools serve data and the client
+   decides (Decision 1).
+2. **How is approval enforced?** Settled: by the host, outside this project. The server declares
+   effects through annotations and descriptions and runs no confirmation of its own — no
+   `elicitation`, no proposal step (Decision 2).
+3. **Statelessness.** Settled by not needing it. Nothing has to survive between two calls, because
+   nothing is split across two calls.
+4. **Tools or resources for read data?** Still open. Squad and market fit the resource model, but
+   resources are application-controlled and unevenly supported by clients. Tools are the safe
+   default; resources could be added on top.
+5. **Credentials.** stdio + environment variables is the documented path, and elicitation form mode
    is explicitly forbidden for this.
-5. **Statelessness.** If a proposal must survive between the `propose` call and the `execute` call,
-   it needs real storage.
 
 ## Sources
 

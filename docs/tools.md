@@ -1,13 +1,13 @@
 # MCP tool catalogue
 
-Every tool the server exposes, its layer and its effects. A tool is documented here in the
+Every tool the server exposes, its kind and its effects. A tool is documented here in the
 same change that implements it.
 
 Every tool named `get_*` only reads and is always safe to call. Everything else changes
 the manager's team or spends their money, and is marked `read_only_hint=False` so a client
 can tell them apart and ask before running one.
 
-| Tool | Layer | Arguments | Returns |
+| Tool | Kind | Arguments | Returns |
 | --- | --- | --- | --- |
 | `get_account` | read | — | Budget, squad totals, formation and league rules |
 | `get_squad` | read | `manager_id?` | Every player in a squad — the manager's own, or a rival's |
