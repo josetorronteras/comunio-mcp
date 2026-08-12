@@ -435,16 +435,73 @@ def _move(player_id, name, from_id, from_name, to_id, to_name, price, immediate=
     return move
 
 
+def _entry(entry_id, date, kind, title, message, **extra):
+    """Wraps a news entry in the envelope every one of them carries.
+
+    `_links` is here because it is in every real entry, carrying hrefs for posting a
+    comment and pinning the item — the kind of thing the models have to drop.
+    """
+    return {
+        "id": entry_id,
+        "date": date,
+        "lastEdit": extra.pop("last_edit", None),
+        "type": kind,
+        "title": title,
+        "message": message,
+        "owner": {"id": 1, "name": "Computer"},
+        "recipient": {"id": None, "name": ""},
+        "comments": extra.pop("comments", []),
+        "sticky": extra.pop("sticky", False),
+        "poll": extra.pop("poll", None),
+        "partner": extra.pop("partner", None),
+        "_links": {
+            "self": {"href": f"/communities/{COMMUNITY_ID}/news/{entry_id}"},
+            "createComment": {"href": "https://api.comunio.es/x/comments"},
+            "setSticky": {"href": "https://api.comunio.es/x/sticky"},
+        },
+    }
+
+
+#: A lineup entry's real weight: every player repeated with their club, the club's logo
+#: URL and a photo URL. Eleven of these say nothing the `tactic` field does not.
+def _lineup_player(player_id, name):
+    return {
+        "id": player_id,
+        "name": name,
+        "points": 0,
+        "liveSubstituted": False,
+        "club": {
+            "id": 5,
+            "name": "Mock FC",
+            "_links": {
+                "self": {"href": "https://api.comunio.es/clubs/5"},
+                "logo": {"href": "https://api.comunio.es/clubs/5/logo"},
+            },
+        },
+        "_links": {
+            "photo": {"href": f"https://api.comunio.es/players/{player_id}/photo"},
+            "detailedInfo": {"href": f"https://api.comunio.es/x/players/{player_id}"},
+        },
+    }
+
+
+#: The marketing body, with the markup that makes it unreadable: entities for every
+#: accent, `<br />` for line breaks and a link buried in an anchor.
+MARKETING_HTML = (
+    "<p>&iexcl;Hola managers! <br /><br /> Empieza la <strong>temporada"
+    "</strong> y hay <em>sorteo</em>. <br /><br /> Puedes leer las bases "
+    '<a href="https://example.invalid/bases">AQU&Iacute;</a>. <br /><br /> '
+    "Saludos, <br /> Equipo de Comunio</p>"
+)
+
+
 #: News entries as the flat `entries` list, which is what `originaltypes=true` without
-#: `group=true` returns. Only one of these is a transfer; the rest is the noise the feed
-#: is mostly made of, including a marketing entry far longer than any transfer.
+#: `group=true` returns. Only one of these is a transfer; the rest is what the feed is
+#: mostly made of, including a marketing entry far longer than any transfer.
 NEWS_ENTRIES = [
-    {
-        "id": 1,
-        "date": "2026-08-10T04:30:27+02:00",
-        "type": "TRANSACTION_TRANSFER",
-        "title": "Fichajes",
-        "message": {
+    _entry(
+        1, "2026-08-10T04:30:27+02:00", "TRANSACTION_TRANSFER", "Fichajes",
+        {
             "FROM_COMPUTER": [
                 _move(7001, "Fichaje Uno", 1, "Computer", 30000001, "Rival Uno", 7_100_000),
                 _move(7002, "Fichaje Dos", 1, "Computer", int(USER_ID), MANAGER_NAME, 1_650_020),
@@ -454,28 +511,48 @@ NEWS_ENTRIES = [
                       659_100, immediate="06:52"),
             ],
         },
-    },
-    {
-        "id": 2,
-        "date": "2026-08-09T04:31:23+02:00",
-        "type": "SYSTEM_ADMINISTRATION",
-        "title": "¡Participa en el sorteo!",
-        "message": {"text": "<p><strong>" + "marketing " * 200 + "</strong></p>", "links": []},
-    },
-    {
-        "id": 3,
-        "date": "2026-08-08T13:59:00+02:00",
-        "type": "LINEUP_CHANGED",
-        "title": "La alineación se ha cambiado",
-        "message": {"lineup": {"keeper": [], "defender": []}, "tactic": "442"},
-    },
-    {
-        "id": 4,
-        "date": "2026-08-07T10:07:44+02:00",
-        "type": "MEMBER_ADMINISTRATION",
-        "title": "¡Nuevo miembro!",
-        "message": {"text": "Alguien se ha unido a la comunidad.", "links": []},
-    },
+        last_edit="2026-08-10T14:21:47+02:00",
+    ),
+    _entry(
+        2, "2026-08-09T04:31:23+02:00", "SYSTEM_ADMINISTRATION", "¡Empieza la temporada!",
+        {
+            "text": MARKETING_HTML,
+            "links": [
+                {"text": "AQUÍ", "url": "https://example.invalid/bases",
+                 "anchor": "", "target": ""}
+            ],
+        },
+        sticky=True,
+        comments=[{"id": 11}, {"id": 12}],
+        partner={"name": "Comunio", "url": "http://www.comunio.es"},
+    ),
+    _entry(
+        3, "2026-08-08T13:59:00+02:00", "LINEUP_CHANGED",
+        "La alineación se ha cambiado, la nueva alineación es: 4-4-2",
+        {
+            "lineup": {
+                "keeper": [_lineup_player(1001, "Portero Uno")],
+                "defender": [_lineup_player(1003, "Defensa Uno")],
+                "midfielder": [],
+                "striker": [_lineup_player(1008, "Delantero Uno")],
+            },
+            "substitutes": {"striker": _lineup_player(0, None)},
+            "incomplete": True,
+            "tactic": "442",
+            "promotion": False,
+        },
+    ),
+    _entry(
+        4, "2026-08-07T10:07:44+02:00", "MEMBER_ADMINISTRATION", "¡Nuevo miembro!",
+        {"text": "Alguien se ha unido a la comunidad.", "links": []},
+    ),
+    # The whole announcement is in the title and the body is empty — so a tool that only
+    # reads `text` would report this one as saying nothing.
+    _entry(
+        5, "2026-08-07T21:36:21+02:00", "COMMUNITY_ADMINISTRATION",
+        "El administrador ha reiniciado la comunidad.",
+        {"text": "", "links": []},
+    ),
 ]
 
 NEWS_RESPONSE = {"newsList": {"entries": NEWS_ENTRIES, "hasMore": True, "_links": {}}}

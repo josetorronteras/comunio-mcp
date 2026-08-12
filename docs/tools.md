@@ -15,6 +15,7 @@ can tell them apart and ask before running one.
 | `get_market` | read | — | Every player up for sale, with prices, trend and seller |
 | `get_offers` | read | — | Open offers in both directions, and real spending power |
 | `get_transfers` | read | `limit?` | Completed transfers with the prices actually paid |
+| `get_news` | read | `limit?`, `types?` | The league feed: announcements, resets, members joining, lineup changes |
 | `get_player` | read | `player_id` | One player's full detail sheet |
 | `list_player_on_market` | **write** | `player_id`, `price` | Puts one of your players up for sale |
 | `unlist_player_from_market` | **write** | `player_id` | Takes one of your players back off sale |
@@ -226,6 +227,72 @@ There is no transfers endpoint — these come out of the league news feed, which
 promotional HTML, welcome messages and administration notices. All of that is dropped. A
 single marketing entry in that feed is longer than every transfer in it put together, and
 none of it belongs in a model's context.
+
+## `get_news`
+
+The league feed, newest first. Same endpoint as `get_transfers`, read for the opposite
+reason: that tool keeps only the transfer entries and discards the rest, this one is the
+rest.
+
+Per entry: `id`, `date`, `edited_at`, `type`, `title`, `text`, `links`, `sticky`,
+`comments`, `has_poll`, plus fields that only apply to some kinds.
+
+| Type | What it is |
+| --- | --- |
+| `SYSTEM_ADMINISTRATION` | Comunio's own announcements — when a matchday starts, promotions |
+| `COMMUNITY_ADMINISTRATION` | The admin resetting or reconfiguring the league |
+| `MEMBER_ADMINISTRATION` | Somebody joining |
+| `LINEUP_CHANGED` | A lineup was set. `tactic` and `lineup_incomplete` |
+| `TRANSACTION_TRANSFER` | A transfer round settled. `transfers` counts the moves |
+
+An **open set** — the tool says so in its description, so an unfamiliar type is treated as
+news rather than an error.
+
+`types` filters to the kinds asked for, matched case-insensitively. `limit` defaults to one
+page; more costs an extra request per page.
+
+Annotated `read_only_hint=True`.
+
+### Nothing is filtered out by type
+
+Which news matters is the reader's call. `get_transfers` drops non-transfer entries because
+it is *about* transfers; this tool is about the feed, so a promotional entry and a league
+reset both come back and `types` is there for the caller to narrow it.
+
+### The body is HTML, and that is the point of the tool
+
+Announcement bodies arrive as markup: tags, `<br />`, and an entity for every accent —
+`&iexcl;Hola managers!`. Left alone, a model spends its context on `&aacute;`.
+
+`text` is the body with tags stripped, entities resolved and blank lines collapsed. Tags
+are stripped **before** entities are unescaped, so an `&lt;` written in the copy cannot
+become a tag that the stripper then eats. Links survive as `text` and `url`; the `anchor`
+and `target` fields beside them are presentation.
+
+### What an entry costs before it is reduced
+
+A single `LINEUP_CHANGED` entry carries the whole eleven — every player with their club,
+the club's logo URL and a photo URL — plus four empty substitute slots. Hundreds of fields
+to say *the formation is now 3-4-3*, which is what `tactic` and `lineup_incomplete` say
+instead. Every entry also carries `_links` with hrefs for posting a comment and pinning the
+item.
+
+### The title is content, not a label
+
+Administration entries put the whole announcement in `title` and send an empty body:
+
+```json
+{"title": "El administrador ha reiniciado la comunidad.", "message": {"text": ""}}
+```
+
+So `text` is `null` there. A reader that only looked at the body would report a league
+reset as an entry that says nothing, and the tool description says to read `title` first.
+
+### Transfers are counted, not re-parsed
+
+A transfer entry reports only `transfers`, the number of moves. `get_transfers` already
+parses these properly — players, prices, both sides, who is Comunio — and a second
+implementation here would be free to drift from the first.
 
 ## `get_player`
 

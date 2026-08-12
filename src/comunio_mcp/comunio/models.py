@@ -401,6 +401,71 @@ class Transfers(BaseModel):
     transfers: list[Transfer] = Field(description="Newest first")
 
 
+class NewsLink(BaseModel):
+    """A link inside an announcement body."""
+
+    text: str = Field(description="The anchor text as it reads in the announcement")
+    url: str = Field(description="Where it points")
+
+
+class NewsEntry(BaseModel):
+    """One item in the league feed, reduced to what it says.
+
+    The feed carries several kinds of entry under one shape, so the type-specific fields
+    are null on the kinds they do not apply to.
+    """
+
+    id: int = Field(description="Entry identifier")
+    date: datetime = Field(description="When it was posted")
+    edited_at: MissingStr = Field(
+        default=None, description="When it was last edited, null if never"
+    )
+    type: str = Field(
+        description="What kind of entry it is: TRANSACTION_TRANSFER, LINEUP_CHANGED, "
+        "SYSTEM_ADMINISTRATION, COMMUNITY_ADMINISTRATION, MEMBER_ADMINISTRATION. An open "
+        "set — Comunio may send others"
+    )
+    title: str = Field(
+        description="Headline. On administration entries this is the whole announcement, "
+        "with an empty body"
+    )
+    text: MissingStr = Field(
+        default=None,
+        description="Body as plain text, with Comunio's HTML and entities stripped. Null "
+        "when the entry has no body",
+    )
+    links: list[NewsLink] = Field(
+        default_factory=list, description="Links the body pointed at, if any"
+    )
+    sticky: bool = Field(description="Pinned to the top of the feed")
+    comments: int = Field(description="How many comments managers left on it")
+    has_poll: bool = Field(description="Whether the entry carries a poll")
+
+    tactic: MissingStr = Field(
+        default=None, description="LINEUP_CHANGED only: the formation it was changed to"
+    )
+    lineup_incomplete: bool | None = Field(
+        default=None,
+        description="LINEUP_CHANGED only: whether slots were left empty, which costs points",
+    )
+    transfers: MissingInt = Field(
+        default=None,
+        description="TRANSACTION_TRANSFER only: how many moves it covers. Use get_transfers "
+        "for the players, prices and sides",
+    )
+
+
+class NewsSummary(BaseModel):
+    total: int = Field(description="Entries returned")
+    by_type: dict[str, int] = Field(description="How many of each type came back")
+
+
+class News(BaseModel):
+    summary: NewsSummary
+    has_more: bool = Field(description="Whether older entries exist beyond what was fetched")
+    entries: list[NewsEntry] = Field(description="Newest first")
+
+
 class PlayerRecord(BaseModel):
     """Career totals for the current season."""
 
