@@ -11,6 +11,7 @@ from comunio_mcp.tools import (
     change_listing_price,
     list_on_market,
     market,
+    news,
     offers,
     place_bid,
     player,
@@ -43,6 +44,7 @@ standings.register(mcp)
 market.register(mcp)
 offers.register(mcp)
 transfers.register(mcp)
+news.register(mcp)
 watchlist.register(mcp)
 
 # Actions that change something.

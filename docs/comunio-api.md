@@ -360,15 +360,16 @@ Each offer links `game:offer:decline` and `game:offer:withdraw`, and the collect
 offer id says which of the two a call would perform, so the tool has to look the offer up
 first: sent against somebody else's offer, a withdrawal declines it instead.
 
-## Transfers, hidden inside the news: `game:news`
+## The league feed, and the transfers hidden in it: `game:news`
 
-There is no transfers endpoint. Completed transfers arrive as **one entry per day** in the
-league news feed, mixed in with promotional HTML, welcome messages and administration
-notices.
+One endpoint, two tools. There is no transfers endpoint: completed transfers arrive as
+**one entry per day** in the league news feed, mixed in with promotional HTML, welcome
+messages and administration notices.
 
-Only `TRANSACTION_TRANSFER` entries are read; the rest is discarded rather than passed to
-a model. That is not tidiness — a single marketing entry in this feed is longer than every
-transfer in it put together.
+| Tool | Reads |
+| --- | --- |
+| `get_transfers` | Only `TRANSACTION_TRANSFER` entries, parsed into moves. The rest is discarded rather than passed to a model — a single marketing entry here is longer than every transfer in it put together. |
+| `get_news` | Every entry, each reduced to what it says. The transfer entries report only how many moves they cover, since the other tool owns that detail. |
 
 ### Parameters, measured rather than copied
 
@@ -402,9 +403,31 @@ computer-only. Manager-to-manager deals presumably arrive under a third key, so 
 **iterates whatever buckets are present** rather than naming them — losing a transfer
 silently would be worse than not knowing the key's name.
 
-`message` is polymorphic across entry types: `{text, links}` for administration entries,
-a full lineup object for `LINEUP_CHANGED`, `{type, matchday, eventId}` for prediction
-notices. Only the transfer shape is modelled.
+`message` is **polymorphic across entry types**, which is why `get_news` has type-specific
+fields that are null on the kinds they do not apply to:
+
+| Type | `message` shape | Reduced to |
+| --- | --- | --- |
+| `TRANSACTION_TRANSFER` | Buckets of moves, as above | `transfers`, a count |
+| `SYSTEM_ADMINISTRATION` | `{text, links}`, the text being HTML | `text` as plain text, plus `links` |
+| `COMMUNITY_ADMINISTRATION` | `{text, links}` with **`text` empty** — the announcement is in the entry's `title` | `title` |
+| `MEMBER_ADMINISTRATION` | `{text, links}`, plain already | `text` |
+| `LINEUP_CHANGED` | The whole eleven, each player with club, club logo URL and photo URL, plus four substitute slots and `incomplete`, `tactic`, `promotion` | `tactic`, `lineup_incomplete` |
+
+Prediction notices carrying `{type, matchday, eventId}` have also been seen. The type list
+is **open**, so an unrecognised entry is returned with its type rather than dropped.
+
+### The envelope every entry carries
+
+`id`, `date`, `lastEdit`, `type`, `title`, `owner`, `recipient`, `comments`, `sticky`,
+`poll`, `partner`, and `_links` with hrefs for `createComment` and `setSticky`. The links
+and the `owner`/`recipient` pair are dropped; `comments` becomes a count.
+
+### Bodies are HTML
+
+Announcement text arrives as markup — tags, `<br />`, and an entity per accent
+(`&iexcl;`, `&aacute;`). `get_news` strips tags **before** unescaping entities, so an
+`&lt;` in the copy cannot become a tag that the stripper then removes.
 
 ### Why it is worth reading
 

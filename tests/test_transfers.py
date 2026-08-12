@@ -13,8 +13,8 @@ def transfers(news_entries):
 
 
 def test_only_transfer_entries_are_kept(transfers, news_entries):
-    # Four news entries, one of which is a transfer digest holding three moves.
-    assert len(news_entries) == 4
+    # Five news entries, one of which is a transfer digest holding three moves.
+    assert len(news_entries) == 5
     assert len(transfers) == 3
 
 
@@ -22,7 +22,8 @@ def test_the_marketing_html_never_survives(transfers):
     serialised = json.dumps([t.model_dump(mode="json") for t in transfers], ensure_ascii=False)
 
     # A single promotional entry in this feed is longer than every transfer in it.
-    assert "marketing" not in serialised
+    assert "sorteo" not in serialised
+    assert "<p>" not in serialised
     assert "<p>" not in serialised
 
 
