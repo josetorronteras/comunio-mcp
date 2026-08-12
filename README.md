@@ -3,32 +3,32 @@
 An **MCP** (Model Context Protocol) server for [Comunio](https://www.comunio.es/es), the online
 football fantasy manager.
 
-It gives an AI agent read access to your league — squad, market, lineup deadline — and lets it
-reason about moves. Anything that changes your team is split into a *proposal* the agent produces
-and an *execution* step that only runs after you approve it.
+It gives an AI assistant access to your league — squad, market, offers, standings, transfers — and
+lets it act on your behalf: bid, sell, set the lineup. One line, `client ↔ MCP ↔ Comunio`, and this
+is the middle segment.
 
 > **Status: early development.** Eighteen tools: reading the squad, market, offers, standings and
 > transfers, and acting on the market, bids and lineup. All verified against a real account.
 
 ## How it works
 
-Tools come in three layers, and the boundary between them is deliberate:
+Tools come in two kinds, and the name tells you which:
 
-| Layer | Examples | What it does |
+| Kind | Naming | What it does |
 | --- | --- | --- |
-| **Read** | `get_squad`, `get_market`, `get_lineup_deadline` | Query only. Never changes anything. |
-| **Propose** | `propose_lineup`, `propose_bid` | Works out a candidate move and hands it back with the numbers behind it. Nothing is sent to Comunio. |
-| **Execute** | `execute_lineup`, `execute_bid` | Applies a proposal you have already seen. |
+| **Read** | `get_squad`, `get_market`, `get_offers` | Query only. Never changes anything. Always safe. |
+| **Write** | `place_bid`, `accept_offer`, `set_lineup` | Changes your team or spends your money. |
 
 Two properties fall out of that:
 
-**There is no AI model inside this server.** It does the arithmetic — budgets, formations, expected
-points, who is suspended — and leaves the judgement to the assistant you are already talking to. No
-API key, no GPU, no inference cost.
+**There is no AI model inside this server, and no strategy either.** It translates: it makes
+Comunio's API callable and its answers legible — unpicking slot numbers, the five different ways one
+endpoint writes "no data", a ranking field that is `0` for every row. Which player to buy is left to
+the assistant you are already talking to. No API key, no GPU, no inference cost.
 
-**Nothing runs without your approval.** An execution can only apply a proposal that was generated
-first, and it asks you to confirm the real figures before it acts. The agent cannot go straight from
-"I think you should bid" to bidding.
+**Your client asks before it acts.** Every mutating tool declares itself as one, so your MCP client
+knows to stop and ask you first. The server does not second-guess a move once you have agreed to it,
+and it reports what Comunio actually answered rather than assuming it worked.
 
 ## Requirements
 

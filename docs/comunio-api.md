@@ -299,11 +299,13 @@ since those are not buyable.
 `trend` is a small signed integer for price movement. It appears here and not in the squad
 endpoint.
 
-### Write endpoints, noted but unused
+### Write endpoints
 
 The response links to `game:exchangemarket:placeoffers` (`/offers`), `addplayer`,
-`removeplayer` and `updateRecommendedPrice`. Those are the mutating routes a future
-`execute_bid` will need. Nothing calls them today.
+`removeplayer` and `updateRecommendedPrice`. All four are in use: `list_player_on_market`,
+`unlist_player_from_market`, `change_listing_price` and `place_bid` respectively. Note that
+the path for the third is `/recommendedprice` even though it sets the manager's own asking
+price — see [tools.md](tools.md).
 
 ## Offers: `game:readOffers`
 
@@ -349,11 +351,14 @@ accepts a below-value offer by assuming an offer is a good one.
   string `"-"` for the same "no data" state.
 - Some manager names carry a **trailing space**. They are stripped.
 
-### Write endpoints, noted but unused
+### Write endpoints
 
 Each offer links `game:offer:decline` and `game:offer:withdraw`, and the collection links
-`game:placeOffers`. Those are what a future `execute_bid` and its siblings will use.
-Nothing calls them.
+`game:placeOffers`. `withdraw_bid`, `accept_offer` and `change_bid` use them.
+
+**`decline` and `withdraw` resolve to the same path with the same body.** Nothing in an
+offer id says which of the two a call would perform, so the tool has to look the offer up
+first: sent against somebody else's offer, a withdrawal declines it instead.
 
 ## Transfers, hidden inside the news: `game:news`
 

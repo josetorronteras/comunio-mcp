@@ -8,32 +8,43 @@ An **MCP** (Model Context Protocol) server for operating on **Comunio**, the onl
 fantasy manager. It exposes a league's squad, market and lineup to the agent, and lets it propose
 and — only after human approval — execute moves.
 
+**The MCP server is the whole deliverable.** No agent skills, no prompt packs, no companion CLI, no
+client-side helpers. Anything a user should be able to do lives in a tool, documented in
+[`docs/tools.md`](docs/tools.md); if a behaviour only works because a particular client was primed
+with extra instructions, it does not belong here. Documentation describes the server and nothing
+else.
+
 ## Guiding principles
 
 Two decisions shape everything else. Both are argued in full in
 [`docs/architecture.md`](docs/architecture.md) — read it before changing anything they touch.
 
-**The server calculates, the host agent judges.** There is no LLM inside this project. Deterministic
-work (budget arithmetic, formation validation, metrics, optimisation) belongs in the server, where
-it is testable; soft judgement belongs to the agent, which already has a model and the conversation.
-`propose_*` tools are deterministic optimisers, not model calls.
+**The server translates, it does not decide.** There is no LLM inside this project and no strategy
+either. The test for anything the server computes is: *could the client build a correct request, or
+read the answer correctly, without this?* If no — slot numbers, Comunio's five ways of writing "no
+data", a `position` field that is `0` for everyone, seller id `1`, allowlisting the fields that
+carry other people's email addresses — it is adapter work and belongs here. If yes — which XI is
+best, whether a price is worth paying — it belongs to the client. **There is no optimiser and there
+is not meant to be one.**
 
-**Approval in cascade.** Tools are model-controlled, so nothing in the protocol stops a model from
-calling `execute_bid`. Three mechanisms are stacked: the host's own approval dialog (free, relied on
-for nothing), `execute_*` accepting only a `proposal_id` issued by the matching `propose_*`, and
-`elicitation` confirmation showing the real figures where the client supports it. **Nothing that
-spends money, changes the lineup or touches the market runs without a proposal the user has seen.**
+**Approval belongs to the host.** The server declares what a tool does through its annotations and
+its description, and then does it. It runs no confirmation ceremony: no `propose_*`/`execute_*`
+split, no `proposal_id`, no persisted proposals, no `elicitation`. Confirming with the user happens
+in the client, which has the conversation. What the server still owes: refusing calls that are
+**wrong** — `game:offer:withdraw` and `game:offer:decline` share a path, so an unchecked id
+*declines* somebody else's offer instead of withdrawing a bid — and reporting what Comunio actually
+answered instead of assuming success.
 
-Tool layers:
+Tool kinds:
 
-| Layer | Examples | Contract |
+| Kind | Naming | Contract |
 | --- | --- | --- |
-| **Read** | `get_squad`, `get_market`, `get_lineup_deadline` | Query only. Never mutates. |
-| **Propose** | `propose_lineup`, `propose_bid` | Deterministic. Persists a proposal, returns it with a `proposal_id`. Never calls a write endpoint. |
-| **Execute** | `execute_lineup`, `execute_bid` | Takes a `proposal_id`. Applies a stored proposal. Decides nothing. |
+| **Read** | `get_*` | Query only. Never mutates. `read_only_hint=True`. |
+| **Write** | anything else | Mutates. Effects declared in the annotations and stated in the description. Validates the call, sends one operation, reports the result. |
 
-A `propose_*` tool never chains internally into its `execute_*` counterpart. When it is unclear
-which layer a new tool belongs to, ask before implementing it.
+`get_` is a promise the server's `instructions` tell the host to trust, so a mutating `get_*` breaks
+every client at once. A write tool sends one operation and does not chain. Refuse malformed and
+misdirected calls, never merely unwise ones, and never invent a rule Comunio does not have.
 
 ## Git conventions
 
@@ -89,9 +100,9 @@ Docker. Rationale in [`docs/architecture.md`](docs/architecture.md) (Decision 3)
 - **No path is hardcoded.** Routes come from the `_links` index via `session.link("game:squad")`.
 - **Never auto-retry a write.** The 401 retry in `ComunioClient` is safe for `GET` only; retrying a
   `POST` or `PUT` would place a bid twice.
-- **No `execute_*` tool until proposals are persisted.** Decision 2 requires an execution to apply a
-  stored proposal the user has seen; a write tool without that barrier is the thing the design
-  exists to prevent.
+- **A write tool's guards run before anything is sent, and are tested by asserting no request left
+  the process** — not by the wording of the error. A guard that only fires after the call is not a
+  guard.
 - **Models are allowlists.** Declare only the fields worth exposing; the raw responses carry
   email, invitation codes and other data that must never reach the model's context.
 
