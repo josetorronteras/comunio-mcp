@@ -370,9 +370,14 @@ reach it. That is why it is annotated `destructive_hint=false`.
 | Refused when | Why |
 | --- | --- |
 | The player is not on the market | There is nothing to bid on, and no listing to name |
-| The player is one of the manager's own listings | Not a move |
+| The player is one of the manager's own listings | Not a move the game has an answer for |
 
 Both are tested by asserting no request left the process, not by the wording of the error.
+
+The second is the one refusal here that asserts a rule nobody has measured Comunio to have,
+so it was reconsidered when the credit and position rules came out, and deliberately kept.
+It is not a judgement about whether a bid is wise — it is a call that cannot have been
+meant, and refusing it costs nothing.
 
 ### Credit is reported, not enforced
 
