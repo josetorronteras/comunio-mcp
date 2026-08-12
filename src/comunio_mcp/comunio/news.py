@@ -25,16 +25,26 @@ from typing import Any
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.models import News, NewsEntry, NewsLink, NewsSummary
 from comunio_mcp.comunio.session import Session
-from comunio_mcp.comunio.transfers import (
-    BASE_PARAMS,
-    MAX_PAGES,
-    NEWS_LINK,
-    PAGE_SIZE,
-    TRANSFER_TYPE,
-)
 
 logger = logging.getLogger(__name__)
 
+NEWS_LINK = "game:news"
+
+#: `originaltypes=true` is load-bearing: without it Comunio collapses the entry types to
+#: coarse ones (`TRANSACTION` instead of `TRANSACTION_TRANSFER`) and they cannot be told
+#: apart, which is what `types` filters on. `group=true` only nests the entries under
+#: dates, which is more work to undo. The web app also sends `type=HIDDEN_NEWS`, which was
+#: measured to change nothing.
+BASE_PARAMS = "originaltypes=true"
+
+#: **The feed caps a page at 20** however large a limit is requested. That is a property of
+#: this endpoint, not of the offer history, which honours what it is given.
+PAGE_SIZE = 20
+
+#: Stops a request for a big limit from walking the whole history of the league.
+MAX_PAGES = 10
+
+TRANSFER_TYPE = "TRANSACTION_TRANSFER"
 LINEUP_TYPE = "LINEUP_CHANGED"
 
 #: `<br>` and the end of a paragraph are the only tags that carry meaning once the markup

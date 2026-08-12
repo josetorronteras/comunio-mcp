@@ -423,6 +423,111 @@ RIVAL_SQUAD_RESPONSE = {
 }
 
 
+def _settled(
+    offer_id,
+    player_id,
+    name,
+    position,
+    *,
+    owner_id,
+    owner_name,
+    user_id,
+    user_name,
+    price,
+    quoted,
+    offer_type="SALE",
+    status="ACTIVE",
+    created="2026-08-10T04:24:03+02:00",
+    changed="2026-08-11T04:31:06+02:00",
+):
+    """One settled offer, shaped like `game:readOffersHistory` returns them.
+
+    `owner` is who held the player, `user` is whose offer it was — the seller and the
+    buyer. `type` is deliberately set to values that contradict the direction, because in
+    real data it does: SALE appears on players moving both ways.
+    """
+    return {
+        "id": offer_id,
+        "type": offer_type,
+        "tradable": {
+            "id": player_id,
+            "name": name,
+            "club": {
+                "id": 5,
+                "name": "Mock FC",
+                "_links": {
+                    "self": {"href": "https://api.comunio.es/clubs/5"},
+                    "logo": {"href": "https://api.comunio.es/clubs/5/logo"},
+                },
+            },
+            "position": position,
+            "trend": 0,
+            "quotedPrice": quoted,
+            # Always 0 here, unlike the market endpoint where it is a real recommendation.
+            "recommendedPrice": 0,
+            "status": status,
+            "statusInfo": None,
+            "points": 0,
+            "purchasePrice": 0,
+            "onWatchlist": None,
+            # Padded with a trailing space, as Comunio sends it.
+            "owner": {"id": owner_id, "name": f"{owner_name} ", "_links": {}},
+            "displayName": None,
+            "_links": {
+                "photo": {"href": f"https://api.comunio.es/players/{player_id}/photo"},
+                "detailedInfo": {"href": "https://api.comunio.es/x/detail"},
+            },
+        },
+        "user": {"id": user_id, "name": user_name, "_links": {}},
+        # Repeats the owner and so adds nothing.
+        "tradingPartner": {"id": owner_id, "name": f"{owner_name} ", "_links": {}},
+        "price": price,
+        "datecreated": created,
+        "datechanged": changed,
+        "state": "PROCESSED",
+        "exchange": False,
+        "tradablesOffered": [],
+        "tradablesDemanded": [],
+        "_links": {"game:offer:withdraw": {"href": "https://api.comunio.es/x/offers/1"}},
+    }
+
+
+#: Settled offers. `credit` comes back null here, unlike the open-offers endpoint.
+#: The `type` values are the important part of this fixture: SALE appears on a player
+#: going to Comunio *and* on one coming from it, so it cannot say which way a deal went.
+OFFERS_HISTORY_RESPONSE = {
+    "credit": None,
+    "items": [
+        # Bought from Comunio, and filed as PURCHASE.
+        _settled(8000001, 7001, "Fichaje Uno", "midfielder",
+                 owner_id=1, owner_name="Computer", user_id=int(USER_ID), user_name=MANAGER_NAME,
+                 price=2_300_000, quoted=1_780_000, offer_type="PURCHASE"),
+        # Also bought from Comunio — but filed as SALE. Same direction, different type.
+        _settled(8000002, 7002, "Fichaje Dos", "defender",
+                 owner_id=1, owner_name="Computer", user_id=30000001, user_name="Rival Uno",
+                 price=16_000_000, quoted=15_900_000, offer_type="SALE"),
+        # Sold back to Comunio, filed as SALE as well.
+        _settled(8000003, 7003, "Venta Uno", "keeper",
+                 owner_id=30000002, owner_name="Rival Dos", user_id=1, user_name="Computer",
+                 price=659_100, quoted=1_080_000, offer_type="SALE",
+                 changed="2026-08-10T06:52:15+02:00"),
+        # The manager's own sale, and a name padded on both sides.
+        _settled(8000004, 7004, " Venta Propia ", "striker",
+                 owner_id=int(USER_ID), owner_name=MANAGER_NAME, user_id=1, user_name="Computer",
+                 price=366_700, quoted=280_000, status="WEAKENED",
+                 changed="2026-08-10T14:21:47+02:00"),
+        # Between two managers, with Comunio on neither side.
+        _settled(8000005, 7005, "Traspaso Directo", "midfielder",
+                 owner_id=30000001, owner_name="Rival Uno",
+                 user_id=30000003, user_name="Rival Tres",
+                 price=4_817_400, quoted=4_970_000,
+                 changed="2026-08-09T12:22:32+02:00"),
+    ],
+    "hasMore": False,
+    "_links": {"game:placeOffers": {"href": "https://api.comunio.es/x/offers"}},
+}
+
+
 def _move(player_id, name, from_id, from_name, to_id, to_name, price, immediate=None):
     move = {
         "tradable": {"id": player_id, "name": name},
@@ -649,6 +754,11 @@ def player_response() -> dict:
 @pytest.fixture
 def news_entries() -> list[dict]:
     return NEWS_ENTRIES
+
+
+@pytest.fixture
+def offers_history_response() -> dict:
+    return OFFERS_HISTORY_RESPONSE
 
 
 @pytest.fixture

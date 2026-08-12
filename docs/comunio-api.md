@@ -360,16 +360,61 @@ Each offer links `game:offer:decline` and `game:offer:withdraw`, and the collect
 offer id says which of the two a call would perform, so the tool has to look the offer up
 first: sent against somebody else's offer, a withdrawal declines it instead.
 
-## The league feed, and the transfers hidden in it: `game:news`
+## Settled transfers: `game:readOffersHistory`
 
-One endpoint, two tools. There is no transfers endpoint: completed transfers arrive as
-**one entry per day** in the league news feed, mixed in with promotional HTML, welcome
-messages and administration notices.
+`/communities/:communityId/users/:userId/offers/history?offset=&limit=` — the settled half
+of the collection `game:readOffers` serves while offers are still open. Same item shape,
+every row `state: PROCESSED`, and `credit` comes back `null` rather than a figure.
 
-| Tool | Reads |
+**It honours the limit it is given.** Measured on a real league at 20, 50, 100 and 200: the
+first returned 20 with `hasMore: true`, the rest returned all 31 there were with
+`hasMore: false`. Pagination is `offset`, not `start`.
+
+### `type` does not give the direction
+
+Each item has `type: SALE | PURCHASE`, and it cannot be used to tell which way a player
+moved. Over one league's whole history, `SALE` appeared **15 times on a player moving to
+Comunio and 13 times on one moving from it**.
+
+What holds, verified on 31 of 31 deals against the same ones in the news feed:
+
+| Field | Is |
 | --- | --- |
-| `get_transfers` | Only `TRANSACTION_TRANSFER` entries, parsed into moves. The rest is discarded rather than passed to a model — a single marketing entry here is longer than every transfer in it put together. |
-| `get_news` | Every entry, each reduced to what it says. The transfer entries report only how many moves they cover, since the other tool owns that detail. |
+| `tradable.owner` | Who held the player — the seller |
+| `user` | Whose offer it was — the buyer |
+| `tradingPartner` | Repeats `tradable.owner` |
+
+### Measured against the news feed
+
+The same 31 movements over the same five days, day by day (5 / 5 / 5 / 11 / 5), and the
+derived direction matches the feed's `FROM_COMPUTER` / `TO_COMPUTER` buckets exactly: 16
+and 15.
+
+| | Movements | Requests |
+| --- | --- | --- |
+| `game:readOffersHistory` | 31 | **1** |
+| `game:news` | 31 | 12 |
+
+It also carries what the digest does not: `quotedPrice` at settlement, the player's club,
+position and status, the offer id, and both `datecreated` and `datechanged` where the
+digest gives only the day it ran.
+
+### Why it is worth reading
+
+These are **settled prices**. The market says what a player is listed at; this says what
+one actually went for, with the valuation beside it. Observed in one league: 31 transfers
+totalling over 115 million, 15 of them paid above the player's quoted price.
+
+**One caveat.** The league measured had been reset five days earlier, so both sources
+bottom out in the same place. Whether the offer history reaches as far back as the feed in
+a league with months behind it is not established.
+
+## The league feed: `game:news`
+
+No longer the source for transfers — it backs `get_news` alone. Completed transfers do
+still arrive in it as **one entry per day**, mixed in with promotional HTML, welcome
+messages and administration notices; `get_news` reports only how many moves such an entry
+covers, since `get_transfers` owns that detail properly now.
 
 ### Parameters, measured rather than copied
 
@@ -399,9 +444,9 @@ message
 ```
 
 Only those two buckets have been observed, in a league whose market has so far been
-computer-only. Manager-to-manager deals presumably arrive under a third key, so the parser
-**iterates whatever buckets are present** rather than naming them — losing a transfer
-silently would be worse than not knowing the key's name.
+computer-only. Manager-to-manager deals presumably arrive under a third key, so `get_news`
+**counts whatever buckets are present** rather than naming them — undercounting a day's
+transfers would be worse than not knowing the key's name.
 
 `message` is **polymorphic across entry types**, which is why `get_news` has type-specific
 fields that are null on the kinds they do not apply to:
@@ -428,12 +473,6 @@ and the `owner`/`recipient` pair are dropped; `comments` becomes a count.
 Announcement text arrives as markup — tags, `<br />`, and an entity per accent
 (`&iexcl;`, `&aacute;`). `get_news` strips tags **before** unescaping entities, so an
 `&lt;` in the copy cannot become a tag that the stripper then removes.
-
-### Why it is worth reading
-
-These are **settled prices**. The market says what a player is listed at; this says what
-one actually went for. Observed in a single page: 20 transfers between 176,000 and
-12,100,000, totalling nearly 79 million.
 
 ## Player detail: `game:tradable`
 
