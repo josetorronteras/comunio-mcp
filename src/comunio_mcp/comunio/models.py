@@ -11,7 +11,28 @@ Numbers arrive from the API as strings (`"20000000"`); Pydantic coerces them.
 from datetime import datetime
 from typing import Annotated, Any
 
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+
+
+class ComunioModel(BaseModel):
+    """Base for everything Comunio returns.
+
+    Comunio spells its fields differently from this server, so fields carry a
+    `validation_alias`. Pydantic puts those aliases into the JSON schema, while
+    `model_dump()` emits the field names — the declared output schema then disagrees
+    with every response, and a client that validates structured output rejects all of
+    them. Generating the schema by field name keeps the two in step.
+
+    `by_alias` is taken positionally as well as by keyword, because the caller is the
+    MCP framework rather than this code.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @classmethod
+    def model_json_schema(cls, by_alias: bool = True, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        kwargs.pop("by_alias", None)
+        return super().model_json_schema(False, *args, **kwargs)
 
 
 def _empty_to_none(value: Any) -> Any:
@@ -24,6 +45,19 @@ def _missing_to_none(value: Any) -> Any:
     return None if value in ("", "-") else value
 
 
+def _decimal_comma(value: Any) -> Any:
+    """Comunio writes decimals with a Spanish comma once matches have been played.
+
+    In pre-season every grade is a plain `0`, so this only shows up after the first
+    matchday: `"6,9"` reaches a float field and parsing fails.
+    """
+    if value in ("", "-"):
+        return None
+    if isinstance(value, str):
+        return value.replace(",", ".")
+    return value
+
+
 def _sentinel_to_none(value: Any) -> Any:
     """`recommendedprice` is -1 when Comunio has no recommendation to give."""
     return None if value == -1 else value
@@ -32,12 +66,12 @@ def _sentinel_to_none(value: Any) -> Any:
 OptionalInt = Annotated[int | None, BeforeValidator(_empty_to_none)]
 #: A number that may arrive as a string, a dash, an empty string or null.
 MissingInt = Annotated[int | None, BeforeValidator(_missing_to_none)]
-MissingFloat = Annotated[float | None, BeforeValidator(_missing_to_none)]
+MissingFloat = Annotated[float | None, BeforeValidator(_decimal_comma)]
 MissingStr = Annotated[str | None, BeforeValidator(_missing_to_none)]
 SentinelInt = Annotated[int | None, BeforeValidator(_sentinel_to_none)]
 
 
-class CommunityRules(BaseModel):
+class CommunityRules(ComunioModel):
     """The subset of community rules that constrains what moves are legal.
 
     Rules are league-wide rather than personal, but they are exactly what the
@@ -74,13 +108,13 @@ class CommunityRules(BaseModel):
     )
 
 
-class Community(BaseModel):
+class Community(ComunioModel):
     id: str = Field(description="League identifier used in API routes")
     name: str = Field(description="League name")
     rules: CommunityRules = Field(description="Rules that constrain legal moves")
 
 
-class Account(BaseModel):
+class Account(ComunioModel):
     """The signed-in manager. Personal identity beyond the display name is left out."""
 
     id: str = Field(description="Manager identifier used in API routes")
@@ -101,10 +135,9 @@ class Account(BaseModel):
     salaries: int = Field(description="Salaries currently payable, in euros")
     tactic: str = Field(description="Current formation, e.g. '442'")
 
-    model_config = {"populate_by_name": True}
 
 
-class AccountSnapshot(BaseModel):
+class AccountSnapshot(ComunioModel):
     """Everything the index endpoint tells us that is worth knowing.
 
     A snapshot in time: budget and squad value move constantly, so this is never cached.
@@ -114,7 +147,7 @@ class AccountSnapshot(BaseModel):
     community: Community
 
 
-class StandingsRow(BaseModel):
+class StandingsRow(ComunioModel):
     """One manager in the league table.
 
     Third-party data is kept to what a standings table needs: a display name, the figures,
@@ -141,17 +174,17 @@ class StandingsRow(BaseModel):
     )
 
 
-class Standings(BaseModel):
+class Standings(ComunioModel):
     period: str = Field(description="Period the table covers, e.g. 'total'")
     rows: list[StandingsRow] = Field(description="Managers, best first")
 
 
-class Club(BaseModel):
+class Club(ComunioModel):
     id: int = Field(description="Club identifier")
     name: str = Field(description="Club name")
 
 
-class NextMatch(BaseModel):
+class NextMatch(ComunioModel):
     """The player's next fixture. Null when none is scheduled yet."""
 
     home: str = Field(description="Home club")
@@ -159,7 +192,7 @@ class NextMatch(BaseModel):
     kickoff: datetime = Field(description="Kick-off time, with timezone")
 
 
-class SquadPlayer(BaseModel):
+class SquadPlayer(ComunioModel):
     id: int = Field(description="Player identifier, used to bid or to look up history")
     name: str = Field(description="Player name")
     club: Club
@@ -220,10 +253,9 @@ class SquadPlayer(BaseModel):
     )
     watched: bool = Field(description="On the manager's watchlist")
 
-    model_config = {"populate_by_name": True}
 
 
-class MarketListing(BaseModel):
+class MarketListing(ComunioModel):
     """One player up for sale.
 
     Note the capitalisation: this endpoint sends `quotedPrice`, while the squad endpoint
@@ -262,10 +294,9 @@ class MarketListing(BaseModel):
     remaining: int = Field(description="Comunio's countdown on the listing")
     watched: bool = Field(description="On the manager's watchlist")
 
-    model_config = {"populate_by_name": True}
 
 
-class MarketSummary(BaseModel):
+class MarketSummary(ComunioModel):
     total: int = Field(description="Players on the market")
     from_computer: int = Field(description="Listed by Comunio itself")
     from_managers: int = Field(description="Listed by managers, the signed-in one included")
@@ -274,7 +305,7 @@ class MarketSummary(BaseModel):
     by_position: dict[str, int] = Field(description="How many listings per position")
 
 
-class Market(BaseModel):
+class Market(ComunioModel):
     closes_at: datetime | None = Field(
         default=None,
         description="When the current round of transfers is processed. Bids must be in by then.",
@@ -286,7 +317,7 @@ class Market(BaseModel):
     listings: list[MarketListing]
 
 
-class OfferPlayer(BaseModel):
+class OfferPlayer(ComunioModel):
     """The player an offer is about. A leaner view than the market's."""
 
     id: int = Field(description="Player identifier")
@@ -305,10 +336,9 @@ class OfferPlayer(BaseModel):
     )
     trend: int = Field(description="Price movement, negative when falling")
 
-    model_config = {"populate_by_name": True}
 
 
-class Offer(BaseModel):
+class Offer(ComunioModel):
     offer_id: int = Field(description="Offer identifier, needed to accept, decline or withdraw")
     type: str = Field(description="What kind of trade, e.g. SALE")
     state: str = Field(description="Where the offer stands, e.g. PENDING")
@@ -335,10 +365,9 @@ class Offer(BaseModel):
     created_at: datetime = Field(description="When the offer was made")
     changed_at: datetime = Field(description="When it was last modified")
 
-    model_config = {"populate_by_name": True}
 
 
-class OffersSummary(BaseModel):
+class OffersSummary(ComunioModel):
     total: int = Field(description="Offers open right now")
     incoming: int = Field(description="Offers for the manager's own players")
     outgoing: int = Field(description="Offers the manager has made")
@@ -349,7 +378,7 @@ class OffersSummary(BaseModel):
     )
 
 
-class Offers(BaseModel):
+class Offers(ComunioModel):
     credit: int = Field(
         description="What the manager can actually spend. Not the same as budget: the league's "
         "credit factor lets it exceed cash in hand."
@@ -359,7 +388,7 @@ class Offers(BaseModel):
     offers: list[Offer]
 
 
-class Transfer(BaseModel):
+class Transfer(ComunioModel):
     """A completed transfer. What a player actually changed hands for."""
 
     offer_id: int = Field(description="Identifier of the offer that settled into this")
@@ -392,7 +421,7 @@ class Transfer(BaseModel):
     settled_at: datetime = Field(description="When it went through")
 
 
-class TransfersSummary(BaseModel):
+class TransfersSummary(ComunioModel):
     total: int = Field(description="Transfers returned")
     bought_from_computer: int = Field(description="Players bought from Comunio")
     sold_to_computer: int = Field(description="Players sold back to Comunio")
@@ -401,20 +430,20 @@ class TransfersSummary(BaseModel):
     total_value: int = Field(description="Everything added up, in euros")
 
 
-class Transfers(BaseModel):
+class Transfers(ComunioModel):
     summary: TransfersSummary
     has_more: bool = Field(description="Whether older transfers exist beyond what was fetched")
     transfers: list[Transfer] = Field(description="Newest first")
 
 
-class NewsLink(BaseModel):
+class NewsLink(ComunioModel):
     """A link inside an announcement body."""
 
     text: str = Field(description="The anchor text as it reads in the announcement")
     url: str = Field(description="Where it points")
 
 
-class NewsEntry(BaseModel):
+class NewsEntry(ComunioModel):
     """One item in the league feed, reduced to what it says.
 
     The feed carries several kinds of entry under one shape, so the type-specific fields
@@ -461,18 +490,18 @@ class NewsEntry(BaseModel):
     )
 
 
-class NewsSummary(BaseModel):
+class NewsSummary(ComunioModel):
     total: int = Field(description="Entries returned")
     by_type: dict[str, int] = Field(description="How many of each type came back")
 
 
-class News(BaseModel):
+class News(ComunioModel):
     summary: NewsSummary
     has_more: bool = Field(description="Whether older entries exist beyond what was fetched")
     entries: list[NewsEntry] = Field(description="Newest first")
 
 
-class PlayerRecord(BaseModel):
+class PlayerRecord(ComunioModel):
     """Career totals for the current season."""
 
     played: int = Field(description="Matches played")
@@ -485,7 +514,7 @@ class PlayerRecord(BaseModel):
     red_cards: int = Field(description="Straight reds")
 
 
-class PlayerAverages(BaseModel):
+class PlayerAverages(ComunioModel):
     grade: MissingFloat = Field(default=None, description="Average grade this season")
     points: MissingFloat = Field(default=None, description="Average Comunio points per match")
     recent_matches: MissingInt = Field(
@@ -497,7 +526,7 @@ class PlayerAverages(BaseModel):
     )
 
 
-class PlayerProfile(BaseModel):
+class PlayerProfile(ComunioModel):
     """Biography. Rarely decisive, but cheap and occasionally the tiebreaker."""
 
     date_of_birth: MissingStr = Field(default=None, description="Date of birth")
@@ -508,12 +537,12 @@ class PlayerProfile(BaseModel):
     shirt_number: MissingInt = Field(default=None, description="Shirt number")
 
 
-class SeasonPoints(BaseModel):
+class SeasonPoints(ComunioModel):
     season: str = Field(description="Season, e.g. '25/26'")
     points: MissingInt = Field(default=None, description="Points scored that season")
 
 
-class BuyoutClause(BaseModel):
+class BuyoutClause(ComunioModel):
     """The price at which a player can be taken from their owner without consent."""
 
     price: MissingInt = Field(
@@ -530,14 +559,14 @@ class BuyoutClause(BaseModel):
     )
 
 
-class UpcomingMatch(BaseModel):
+class UpcomingMatch(ComunioModel):
     matchday: MissingInt = Field(default=None, description="Matchday number")
     home: str = Field(description="Home club")
     away: str = Field(description="Away club")
     kickoff: datetime = Field(description="Kick-off time, with timezone")
 
 
-class PlayerDetail(BaseModel):
+class PlayerDetail(ComunioModel):
     player_id: int = Field(description="Player identifier")
     name: str = Field(description="Player name")
     club: Club
@@ -575,7 +604,7 @@ class PlayerDetail(BaseModel):
     profile: PlayerProfile
 
 
-class ListingResult(BaseModel):
+class ListingResult(ComunioModel):
     """What actually happened when players were put on the market.
 
     `addplayer` is a batch endpoint, so partial success is normal: `placed` and `rejected`
@@ -591,7 +620,7 @@ class ListingResult(BaseModel):
     )
 
 
-class UnlistResult(BaseModel):
+class UnlistResult(ComunioModel):
     """What came back from taking players off the market.
 
     Unlike listing, this endpoint reports **no per-player detail** — just an overall
@@ -603,7 +632,7 @@ class UnlistResult(BaseModel):
     unlisted: list[int] = Field(description="Player ids the request asked to take off sale")
 
 
-class AskingPriceResult(BaseModel):
+class AskingPriceResult(ComunioModel):
     """What came back from changing a listed player's asking price.
 
     This endpoint answers with a bare `true`, not an object, so there is nothing to read
@@ -615,7 +644,7 @@ class AskingPriceResult(BaseModel):
     price: int = Field(description="The asking price that was requested, in euros")
 
 
-class WithdrawResult(BaseModel):
+class WithdrawResult(ComunioModel):
     """What came back from withdrawing one of the manager's own bids."""
 
     ok: bool = Field(description="Whether Comunio accepted the withdrawal")
@@ -624,7 +653,7 @@ class WithdrawResult(BaseModel):
     price: MissingInt = Field(default=None, description="What the withdrawn bid offered")
 
 
-class BidResult(BaseModel):
+class BidResult(ComunioModel):
     """What actually happened to a bid.
 
     Read from the **per-item** status inside the response, never the outer one: Comunio
@@ -653,7 +682,7 @@ class BidResult(BaseModel):
     )
 
 
-class AcceptResult(BaseModel):
+class AcceptResult(ComunioModel):
     """What happened when an offer for one of the manager's players was accepted.
 
     The only action in this project that cannot be undone. The player leaves the squad
@@ -678,7 +707,7 @@ class AcceptResult(BaseModel):
     )
 
 
-class LineupSlot(BaseModel):
+class LineupSlot(ComunioModel):
     slot: int = Field(description="Comunio's slot number, 1 to 11")
     position: str = Field(description="What that slot plays")
     player_id: int = Field(description="Player put there")
@@ -686,7 +715,7 @@ class LineupSlot(BaseModel):
     status: str = Field(description="Their availability at the time the lineup was set")
 
 
-class LineupResult(BaseModel):
+class LineupResult(ComunioModel):
     """What the lineup was set to.
 
     Comunio answers with nothing but a status, so everything else here is worked out from
@@ -711,7 +740,7 @@ class LineupResult(BaseModel):
     )
 
 
-class WatchedPlayer(BaseModel):
+class WatchedPlayer(ComunioModel):
     """A player on the watchlist."""
 
     id: int = Field(description="Player identifier")
@@ -737,19 +766,19 @@ class WatchedPlayer(BaseModel):
     )
 
 
-class Watchlist(BaseModel):
+class Watchlist(ComunioModel):
     total: int = Field(description="How many players are being watched")
     unowned: int = Field(description="How many of them no manager holds")
     players: list[WatchedPlayer]
 
 
-class WatchResult(BaseModel):
+class WatchResult(ComunioModel):
     ok: bool = Field(description="Whether Comunio accepted the change")
     player_id: int = Field(description="Player added to or removed from the watchlist")
     watching: bool = Field(description="Whether the player is now being watched")
 
 
-class SquadSummary(BaseModel):
+class SquadSummary(ComunioModel):
     """Counts the lineup rules are checked against, so nobody has to recount them."""
 
     total: int = Field(description="Players in the squad")
@@ -760,7 +789,7 @@ class SquadSummary(BaseModel):
     by_position: dict[str, int] = Field(description="How many players per position")
 
 
-class Squad(BaseModel):
+class Squad(ComunioModel):
     owner: str | None = Field(default=None, description="Manager the squad belongs to")
     owner_id: int | None = Field(default=None, description="That manager's identifier")
     is_mine: bool = Field(
