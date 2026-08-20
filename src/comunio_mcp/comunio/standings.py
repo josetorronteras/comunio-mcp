@@ -8,7 +8,7 @@ Two things set this endpoint apart from the others:
   live nested inside each row rather than alongside the figures.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.models import Standings, StandingsRow
@@ -16,14 +16,23 @@ from comunio_mcp.comunio.session import Session
 
 STANDINGS_LINK = "game:standings"
 
-#: `period=total` is the season table. Other values the web app might use are unknown.
+#: The two periods the web app is known to request. `total` is the season table;
+#: `live` is the same table recomputed for the matchday in progress, and it is the only
+#: one that fills `livePoints`, `playersPossiblyScoredAmount` and `negativeBudget` —
+#: under `total` those come back null, 0 and false even when a manager is in the red.
+Period = Literal["total", "live"]
+
 #: `wpe` is undocumented; the web app always sends it and the endpoint needs it.
-DEFAULT_PARAMS = {"period": "total", "wpe": "true"}
+WPE = "true"
 
 
-async def fetch_standings(session: Session, client: ComunioClient) -> Standings:
+async def fetch_standings(
+    session: Session,
+    client: ComunioClient,
+    period: Period = "total",
+) -> Standings:
     url = await session.link(STANDINGS_LINK)
-    payload = await client.get(url, params=DEFAULT_PARAMS)
+    payload = await client.get(url, params={"period": period, "wpe": WPE})
     me = (await session.info()).user_id
     return parse_standings(payload, me)
 

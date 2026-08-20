@@ -11,7 +11,7 @@ can tell them apart and ask before running one.
 | --- | --- | --- | --- |
 | `get_account` | read | — | Budget, squad totals, formation and league rules |
 | `get_squad` | read | `manager_id?` | Every player in a squad — the manager's own, or a rival's |
-| `get_standings` | read | — | The league table, with rival squad values and who is broke |
+| `get_standings` | read | `period?` | The league table, with rival squad values and who is broke |
 | `get_market` | read | — | Every player up for sale, with prices, trend and seller |
 | `get_offers` | read | — | Open offers in both directions, and real spending power |
 | `get_transfers` | read | `limit?` | Completed transfers with the prices actually paid |
@@ -124,6 +124,22 @@ rivals cannot outbid you right now. **`manager_id`** is what a rival-squad looku
 need.
 
 Annotated `read_only_hint=True`.
+
+### `period`: `total` (default) or `live`
+
+`total` is the season table. **`live` is the one to ask for while a matchday is being
+played**, and the difference is not cosmetic: three fields are only populated there.
+
+| Field | Under `total` | Under `live` |
+| --- | --- | --- |
+| `live_points` | `null` | Points each manager is scoring right now |
+| `players_possibly_scoring` | `0` | How many of their players may still score |
+| `negative_budget` | **`false` for everyone** | The managers actually in the red |
+
+That last row is the trap. A manager whose budget is negative when a matchday starts
+scores nothing for it, so the flag decides whether a rival is even in the running — and
+under `total` it reads false for all of them regardless. Asking for `total` and
+concluding that nobody is broke is a wrong answer, not a missing one.
 
 ### Computed server-side
 

@@ -225,8 +225,24 @@ JSON at all, which is why a bare `GET` on the link fails in a confusing way. `Se
 does not need to know about this: parameters go to the client, which passes them straight
 to httpx.
 
-`period=total` is the season table; what other values exist is unknown. `wpe` is
-undocumented — the web app always sends it and the endpoint needs it.
+`wpe` is undocumented — the web app always sends it and the endpoint needs it.
+
+### `period` changes which fields are real, not just which numbers
+
+Two values are known: `total`, the season table, and `live`, the same table recomputed
+for the matchday in progress. Three fields come back empty under `total` and only carry
+data under `live`:
+
+| Field | `total` | `live` |
+| --- | --- | --- |
+| `livePoints` | `null` | Points being scored right now |
+| `playersPossiblyScoredAmount` | `0` | Players who may still score |
+| `negativeBudget` | `false` for every row | True for the managers in the red |
+
+`negativeBudget` is the one that matters. It is not that `total` omits it — it reports
+`false` for managers who *are* overdrawn, which reads as a fact rather than as a gap.
+Observed on a live league: one manager came back `false` under `total` and `true` under
+`live` in the same minute, with no transfer between the two calls.
 
 ### `_embedded`, a shape the index does not use
 

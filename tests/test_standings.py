@@ -1,9 +1,17 @@
+import asyncio
 import json
 
+import httpx2
 import pytest
 
-from comunio_mcp.comunio.standings import parse_standings
-from tests.conftest import MANAGER_NAME, USER_ID
+from comunio_mcp.comunio.auth import ComunioAuth
+from comunio_mcp.comunio.client import ComunioClient
+from comunio_mcp.comunio.session import Session
+from comunio_mcp.comunio.standings import fetch_standings, parse_standings
+from comunio_mcp.config import Settings
+from tests.conftest import COMMUNITY_ID, MANAGER_NAME, USER_ID
+
+SETTINGS = Settings(username="manager", password="s3cret", timezone="Europe/Madrid")
 
 
 @pytest.fixture
@@ -80,3 +88,94 @@ def test_manager_names_are_stripped(standings_response):
     # Offers and transfers strip too; without this the same manager fails to match
     # across tools.
     assert standings.rows[0].manager == "Rival Uno"
+
+
+@pytest.fixture
+def live(standings_live_response):
+    return parse_standings(standings_live_response, me=USER_ID)
+
+
+def test_the_live_period_carries_points_being_scored_right_now(live):
+    by_name = {row.manager: row for row in live.rows}
+
+    assert live.period == "live"
+    assert by_name[MANAGER_NAME].live_points == 6
+    assert by_name[MANAGER_NAME].players_possibly_scoring == 1
+    # Zero is an answer — nobody of theirs is playing — and is not the same as null.
+    assert by_name["Rival Dos"].live_points == 0
+
+
+def test_only_the_live_period_reports_who_is_broke(standings, live):
+    # Under `total` the flag reads false for every manager, so a table asked for that way
+    # cannot be used to tell who will score nothing this matchday.
+    broke_now = [row.manager for row in live.rows if row.negative_budget]
+
+    assert broke_now == ["Rival Tres"]
+    assert [row.manager for row in standings.rows if row.negative_budget] != broke_now
+
+
+class FakeApi:
+    """Answers login, the index and the standings endpoint."""
+
+    def __init__(self, payload) -> None:
+        self.payload = payload
+        self.requested: list[str] = []
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        if request.url.path == "/login":
+            return httpx2.Response(
+                200,
+                json={
+                    "access_token": "a",
+                    "expires_in": 1800,
+                    "token_type": "Bearer",
+                    "scope": "",
+                    "refresh_token": "r",
+                },
+            )
+        if request.url.path == "/":
+            return httpx2.Response(
+                200,
+                json={
+                    "user": {"id": USER_ID},
+                    "community": {"id": COMMUNITY_ID},
+                    "_links": {
+                        "game:standings": {
+                            "href": "https://api.comunio.es/communities/"
+                            f"{COMMUNITY_ID}/standings"
+                        }
+                    },
+                },
+            )
+
+        self.requested.append(str(request.url))
+        return httpx2.Response(200, json=self.payload)
+
+
+def _run(handler, body):
+    http = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
+
+    async def run():
+        async with http:
+            client = ComunioClient(http, ComunioAuth(http, SETTINGS))
+            return await body(Session(client), client)
+
+    return asyncio.run(run())
+
+
+def test_the_season_table_is_what_gets_asked_for_by_default(standings_response):
+    handler = FakeApi(standings_response)
+
+    _run(handler, lambda s, c: fetch_standings(s, c))
+
+    assert "period=total" in handler.requested[0]
+    # Undocumented, but the endpoint answers with something that is not JSON without it.
+    assert "wpe=true" in handler.requested[0]
+
+
+def test_the_live_period_is_passed_through(standings_live_response):
+    handler = FakeApi(standings_live_response)
+
+    _run(handler, lambda s, c: fetch_standings(s, c, period="live"))
+
+    assert "period=live" in handler.requested[0]

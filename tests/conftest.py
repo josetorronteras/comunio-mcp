@@ -201,13 +201,23 @@ SQUAD_RESPONSE = {
 }
 
 
-def _standing(manager_id, name, *, total=0, last="-", live=None, team_value=0, negative=False):
+def _standing(
+    manager_id,
+    name,
+    *,
+    total=0,
+    last="-",
+    live=None,
+    scoring=0,
+    team_value=0,
+    negative=False,
+):
     return {
         "totalPoints": total,
         "lastPoints": last,
         "totalPerennialPoints": 0,
         "livePoints": live,
-        "playersPossiblyScoredAmount": 0,
+        "playersPossiblyScoredAmount": scoring,
         "_links": {"user": {"href": f"https://api.comunio.es/users/{manager_id}"}},
         "_embedded": {
             "user": {
@@ -250,6 +260,27 @@ STANDINGS_RESPONSE = {
     "secondHalfStarted": False,
     "_links": {"self": {"href": "https://api.comunio.es/x/standings"}},
     "_embedded": {"formerEventsWithPoints": {"events": []}},
+}
+
+
+#: The same table asked for with `period=live`, mid-matchday. Only this period fills
+#: `livePoints` and `playersPossiblyScoredAmount`, and only here does `negativeBudget`
+#: tell the truth: under `total` it reads false for everyone, Rival Tres included.
+STANDINGS_LIVE_RESPONSE = {
+    "id": "live",
+    "items": [
+        _standing(30000001, "Rival Uno", total=42, last="7", live=11, scoring=2,
+                  team_value=54_750_000),
+        _standing(30000002, "Rival Dos", total=35, live=0, team_value=48_420_000),
+        _standing(int(USER_ID), MANAGER_NAME, total=30, last="3", live=6, scoring=1,
+                  team_value=42_500_000),
+        _standing(30000003, "Rival Tres", live=0, team_value=26_000_000, negative=True),
+    ],
+    "restartItems": None,
+    "historicalItems": None,
+    "key": "live",
+    "secondHalfStarted": False,
+    "_links": {"self": {"href": "https://api.comunio.es/x/standings"}},
 }
 
 
@@ -784,3 +815,8 @@ def squad_response() -> dict:
 @pytest.fixture
 def standings_response() -> dict:
     return STANDINGS_RESPONSE
+
+
+@pytest.fixture
+def standings_live_response() -> dict:
+    return STANDINGS_LIVE_RESPONSE
