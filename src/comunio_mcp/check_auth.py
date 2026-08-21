@@ -2,6 +2,15 @@
 
 Run it with `docker compose run --rm auth-check`. It exercises login and refresh and
 reports how long the tokens last. It never prints a token.
+
+**Kept on purpose.** It was written as a stand-in until a read tool existed, and
+`get_account` has been that for a while — but the two answer different questions.
+`get_account` needs an MCP client, a model and a conversation to reach; this needs a
+shell. When a login fails it is the shortest path to whether the credentials, the
+headers and the refresh work at all, with nothing else in the way to be wrong.
+
+It is not part of the server, which is why `print()` is fine here: stdout carries
+JSON-RPC only in the stdio server, and this is a script.
 """
 
 import asyncio

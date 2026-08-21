@@ -194,11 +194,16 @@ correctly, advertising `"supportedVersions": ["2026-07-28"]`.
 - Examples found online are overwhelmingly 1.x. Check the import path before trusting any
   snippet.
 
-### Still unverified
+### Verified since
 
-Whether the MCP clients we care about negotiate `2026-07-28` in practice. The server
-declares only that version. If a client turns out to speak `2025-11-25` only, this
-decision needs revisiting — that is the risk knowingly taken here.
+The open risk was whether real clients negotiate `2026-07-28` at all, given that the
+server declares no other version. They do: the server has been driven in daily use from
+**Claude Code**, and registered in and called through **MCPJungle**. Neither needed a
+fallback to `2025-11-25`.
+
+That is two clients, not a survey. A client that speaks only `2025-11-25` would still be
+turned away, and the answer if one shows up is unchanged — revisit this decision rather
+than declare a version the server does not implement.
 
 ---
 

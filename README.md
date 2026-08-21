@@ -7,8 +7,10 @@ It gives an AI assistant access to your league — squad, market, offers, standi
 lets it act on your behalf: bid, sell, set the lineup. One line, `client ↔ MCP ↔ Comunio`, and this
 is the middle segment.
 
-> **Status: early development.** Eighteen tools: reading the squad, market, offers, standings and
-> transfers, and acting on the market, bids and lineup. All verified against a real account.
+> **Status: in daily use against a real account.** Nineteen tools: reading the squad, market,
+> offers, standings and transfers, and acting on the market, bids and lineup. It talks to
+> Comunio's **unofficial** API, which can change without notice — see
+> [docs/comunio-api.md](docs/comunio-api.md) for what is mapped and what is not.
 
 ## How it works
 
@@ -56,6 +58,10 @@ Then ask your assistant how your team is doing. Full instructions, including Cla
 - [MCP protocol notes](docs/mcp-protocol.md) — the parts of MCP `2026-07-28` that shape this project
 
 Contributor conventions are in [CLAUDE.md](CLAUDE.md).
+
+## License
+
+[MIT](LICENSE).
 
 ## Disclaimer
 
