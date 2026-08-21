@@ -772,6 +772,35 @@ PLAYER_RESPONSE = {
 }
 
 
+def _watched(player_id, name, position, *, owner=None, quoted=1_000_000, status="ACTIVE"):
+    return {
+        "id": player_id,
+        "name": name,
+        "club": {"id": 5, "name": "Mock FC", "_links": {}},
+        "position": position,
+        "status": status,
+        "statusInfo": "",
+        "disabled": False,
+        # The squad's spelling, lowercase, not the market's `quotedPrice`.
+        "quotedprice": quoted,
+        "trend": 0,
+        "points": "-",
+        "lastPoints": None,
+        "owner": owner,
+        "_links": {"photo": {"href": f"https://api.comunio.es/players/{player_id}/photo"}},
+    }
+
+
+#: The watchlist wraps its entries in `tradables`, not `items`. `owner` is null when
+#: nobody holds the player, which is the field the model actually acts on.
+WATCHLIST_RESPONSE = {
+    "tradables": [
+        _watched(6001, "Libre Uno", "striker"),
+        _watched(6002, "De Rival", "defender", owner={"id": 30000001, "name": "Rival Uno"}),
+    ]
+}
+
+
 @pytest.fixture
 def index_response() -> dict:
     return INDEX_RESPONSE
