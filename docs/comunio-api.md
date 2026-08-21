@@ -644,6 +644,15 @@ the retry must not cover them.
   `ACCEPT`.
 - Whether `decline` and `withdraw`, which share a path, differ by method or by who owns
   the offer.
+
+  These two are the only unknowns that could touch **somebody else's** offer rather than
+  the manager's own account, so they are worth being explicit about. Neither is reachable
+  today: **no tool declines an offer**, and `withdraw_bid` looks the offer up first and
+  refuses anything whose `direction` is not `outgoing` before a request is sent
+  (`comunio/actions.py`). They are a gap in what is *mapped*, not an open path in what
+  can be *called* — and mapping them means declining a real offer to watch what goes over
+  the wire, which is not something to do casually. A `decline_offer` tool cannot be built
+  until they are answered.
 - What `remaining: 36` counts in the `addplayer` response. Market listings carry their own
   `remaining: 14`, so the two are not the same thing.
 - What `opponentIds` is for; it has only ever come back as an empty string.
@@ -677,7 +686,7 @@ Design points worth keeping:
 ## Verifying it against the real API
 
 Every test in the suite uses a mock transport, so **nothing in CI touches the real API**.
-Until there is a read tool to exercise, this script is the only thing that does:
+The `auth-check` script is what reaches it:
 
 ```bash
 cp .env.example .env    # fill in your credentials
@@ -689,7 +698,12 @@ token.
 
 It exists to answer questions a mock cannot: whether the credentials work, whether the
 headers get through, and whether the refresh really needs its `authorization` header.
-**Once a real read tool exists it becomes redundant and should be deleted.**
+
+It was originally written as a stand-in until a read tool existed, and `get_account` is
+that now — but it is **kept** rather than deleted, because the two answer different
+questions. Reaching `get_account` means an MCP client, a model and a conversation;
+reaching this means a shell. When a login fails, it is the shortest path to the cause
+with the least in the way to be wrong.
 
 ## Verified against the real API
 
