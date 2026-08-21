@@ -59,6 +59,10 @@ Then ask your assistant how your team is doing. Full instructions, including Cla
 
 Contributor conventions are in [CLAUDE.md](CLAUDE.md).
 
+## License
+
+[MIT](LICENSE).
+
 ## Disclaimer
 
 Unofficial project, not affiliated with Comunio. Use it with your own account and at your own risk.
