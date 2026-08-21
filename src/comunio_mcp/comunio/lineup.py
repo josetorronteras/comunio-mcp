@@ -18,7 +18,7 @@ four points rather than refusing it — so slots may be left empty, and the resu
 many and what that is worth.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.models import LineupResult, LineupSlot
@@ -31,6 +31,12 @@ LINEUP_LINK = "game:lineup"
 KEEPER, DEFENDER, MIDFIELDER, STRIKER = "keeper", "defender", "midfielder", "striker"
 
 KEEPER_SLOT = 11
+
+#: The five formations, in the tool's schema so a client sees the choices instead of
+#: guessing at a free string. `TACTICS` stays the one place they are defined, and the
+#: check in `set_lineup` stays too: this function is callable without the schema in front
+#: of it.
+Tactic = Literal["442", "343", "352", "433", "451"]
 
 #: The five formations Comunio accepts, as defenders–midfielders–strikers.
 TACTICS: dict[str, tuple[int, int, int]] = {

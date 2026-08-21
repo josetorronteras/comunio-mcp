@@ -614,7 +614,10 @@ the strikers backwards:
 That arithmetic is exactly the kind of thing that does not belong in a prompt, so the tool
 owns it. `slot_plan()` is tested directly.
 
-Valid formations, read as defenders–midfielders–strikers: **442, 343, 352, 433, 451**.
+Valid formations, read as defenders–midfielders–strikers: **442, 343, 352, 433, 451**. They
+are an enum in the tool's input schema, so a client sees the five choices rather than
+guessing at a free string. The check in the code stays as well — the schema is a client's
+courtesy, not a guarantee that what arrives obeyed it.
 
 ### Incomplete lineups are allowed, and priced
 

@@ -4,7 +4,7 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
 from mcp.types import ToolAnnotations
 
-from comunio_mcp.comunio.lineup import TACTICS
+from comunio_mcp.comunio.lineup import TACTICS, Tactic
 from comunio_mcp.comunio.lineup import set_lineup as apply_lineup
 from comunio_mcp.comunio.models import LineupResult
 from comunio_mcp.context import AppContext, require_comunio, require_session
@@ -24,7 +24,7 @@ def register(mcp: MCPServer) -> None:
     )
     async def set_lineup(
         ctx: Context[AppContext],
-        tactic: str,
+        tactic: Tactic,
         keeper: int | None = None,
         defenders: list[int] | None = None,
         midfielders: list[int] | None = None,

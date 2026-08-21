@@ -1,12 +1,19 @@
 import asyncio
 import json
+from typing import get_args
 
 import httpx2
 import pytest
 
 from comunio_mcp.comunio.auth import ComunioAuth
 from comunio_mcp.comunio.client import ComunioClient
-from comunio_mcp.comunio.lineup import LineupError, set_lineup, slot_plan
+from comunio_mcp.comunio.lineup import (
+    TACTICS,
+    LineupError,
+    Tactic,
+    set_lineup,
+    slot_plan,
+)
 from comunio_mcp.comunio.session import Session
 from comunio_mcp.config import Settings
 from tests.conftest import COMMUNITY_ID, USER_ID
@@ -241,3 +248,10 @@ def test_someone_outside_the_squad_is_refused():
 
     assert "Not in the squad" in str(excinfo.value)
     assert handler.writes == []
+
+
+def test_the_schema_and_the_rulebook_list_the_same_formations():
+    # `Tactic` puts the formations in the tool's input schema and `TACTICS` is what the
+    # code reads. Adding one to either alone would let a client offer a formation that is
+    # then refused, or hide one that works.
+    assert set(get_args(Tactic)) == set(TACTICS)
