@@ -224,3 +224,15 @@ def test_it_stops_at_the_limit_and_says_there_is_more(offers_history_response):
 
     assert len(result.transfers) == 3
     assert result.has_more is True
+
+
+@pytest.mark.parametrize("limit", [0, -5])
+def test_a_limit_below_one_is_refused_before_anything_is_sent(limit):
+    # A negative limit would reach Comunio as `limit=-5`, whose behaviour is unknown,
+    # and then slice the list from the wrong end on the way back.
+    handler = FakeApi([])
+
+    with pytest.raises(ValueError):
+        _run(handler, lambda s, c: fetch_transfers(s, c, limit=limit))
+
+    assert handler.requested == []

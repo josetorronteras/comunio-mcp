@@ -242,3 +242,14 @@ def test_types_is_matched_case_insensitively_through_the_fetch(news_entries):
     result = _run(handler, lambda s, c: fetch_news(s, c, types=["lineup_changed"]))
 
     assert [entry.type for entry in result.entries] == ["LINEUP_CHANGED"]
+
+
+@pytest.mark.parametrize("limit", [0, -5])
+def test_a_limit_below_one_is_refused_before_anything_is_sent(limit):
+    # Fetching a page only to throw all of it away is a request made for nothing.
+    handler = FakeApi([])
+
+    with pytest.raises(ValueError):
+        _run(handler, lambda s, c: fetch_news(s, c, limit=limit))
+
+    assert handler.requested == []

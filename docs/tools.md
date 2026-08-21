@@ -254,6 +254,11 @@ page holds.
 This is worth stating because the same is *not* true of `game:news`, which backs
 `get_news`: that one caps a page at 20 whatever it is asked for.
 
+The one thing it will not take is a limit **below 1**. The schema declares `minimum: 1`
+and the check runs again before any request is sent, because a negative limit would reach
+Comunio as `limit=-5` — behaviour nobody has measured — and then slice the result from the
+wrong end, returning fewer transfers than were fetched without saying so.
+
 ### It reads the offer history, not the news feed
 
 `game:readOffersHistory` is the settled half of the collection `get_offers` reads while
@@ -313,7 +318,8 @@ An **open set** — the tool says so in its description, so an unfamiliar type i
 news rather than an error.
 
 `types` filters to the kinds asked for, matched case-insensitively. `limit` defaults to one
-page; more costs an extra request per page.
+page; more costs an extra request per page, and it must be at least 1 — fetching a page
+only to discard all of it is a request made for nothing.
 
 Annotated `read_only_hint=True`.
 

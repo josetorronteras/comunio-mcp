@@ -37,6 +37,12 @@ MAX_PAGES = 10
 async def fetch_transfers(
     session: Session, client: ComunioClient, limit: int = DEFAULT_LIMIT
 ) -> Transfers:
+    # Checked before anything is sent. A negative limit reaches Comunio as `limit=-5`,
+    # whose behaviour is unknown, and then slices the list from the wrong end on the way
+    # back — quietly returning fewer transfers than were fetched.
+    if limit < 1:
+        raise ValueError("limit must be at least 1")
+
     url = await session.link(HISTORY_LINK)
     me = (await session.info()).user_id
 

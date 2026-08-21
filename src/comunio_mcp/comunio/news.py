@@ -80,6 +80,12 @@ async def fetch_news(
     limit: int = PAGE_SIZE,
     types: list[str] | None = None,
 ) -> News:
+    # Checked before anything is sent, as in `fetch_transfers`. Here a limit below 1
+    # would fetch a page and then throw all of it away, which is a request made for
+    # nothing.
+    if limit < 1:
+        raise ValueError("limit must be at least 1")
+
     url = await session.link(NEWS_LINK)
     wanted = {kind.upper() for kind in types} if types else None
 

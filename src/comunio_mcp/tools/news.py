@@ -1,8 +1,11 @@
 """Read the league news feed."""
 
+from typing import Annotated
+
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
 from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from comunio_mcp.comunio.models import News
 from comunio_mcp.comunio.news import fetch_news
@@ -15,7 +18,9 @@ DEFAULT_LIMIT = 20
 def register(mcp: MCPServer) -> None:
     @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
     async def get_news(
-        ctx: Context[AppContext], limit: int = DEFAULT_LIMIT, types: list[str] | None = None
+        ctx: Context[AppContext],
+        limit: Annotated[int, Field(ge=1)] = DEFAULT_LIMIT,
+        types: list[str] | None = None,
     ) -> News:
         """Get the league news feed, newest first: what has happened in this community.
 
