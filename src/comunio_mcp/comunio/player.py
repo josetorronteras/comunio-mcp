@@ -61,6 +61,7 @@ def parse_player(payload: Any) -> PlayerDetail:
     purchase = payload.get("purchaseInfo") or {}
     club = payload.get("club") or {}
     owner = payload.get("owner") or {}
+    extended = payload.get("extendedInfo") or {}
 
     return PlayerDetail(
         player_id=payload.get("playerId"),
@@ -107,13 +108,12 @@ def parse_player(payload: Any) -> PlayerDetail:
         next_matches=_parse_matches(payload.get("nextMatches") or []),
         profile=PlayerProfile(
             # A date of birth arrives as a full timestamp with a made-up time on it.
-            date_of_birth=(_real_date((payload.get("extendedInfo") or {}).get("dob")) or "")[:10]
-            or None,
-            nationality=(payload.get("extendedInfo") or {}).get("nationality"),
-            height=(payload.get("extendedInfo") or {}).get("height"),
-            weight=(payload.get("extendedInfo") or {}).get("weight"),
-            preferred_foot=(payload.get("extendedInfo") or {}).get("preferredFoot"),
-            shirt_number=_real_number((payload.get("extendedInfo") or {}).get("jerseyNumber")),
+            date_of_birth=(_real_date(extended.get("dob")) or "")[:10] or None,
+            nationality=extended.get("nationality"),
+            height=extended.get("height"),
+            weight=extended.get("weight"),
+            preferred_foot=extended.get("preferredFoot"),
+            shirt_number=_real_number(extended.get("jerseyNumber")),
         ),
     )
 

@@ -34,7 +34,7 @@ async def fetch_squad(
 
 
 def parse_squad(payload: Any, me: str | None = None) -> Squad:
-    items = payload["items"]
+    items = payload.get("items") or []
     players = [_parse_player(item) for item in items]
     owner = (items[0].get("owner") or {}) if items else {}
     owner_id = owner.get("id")
