@@ -15,6 +15,7 @@ from typing import Any
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.models import Market, MarketListing, MarketSummary
 from comunio_mcp.comunio.session import Session
+from comunio_mcp.comunio.statuses import meaning
 
 MARKET_LINK = "game:exchangemarket"
 
@@ -53,6 +54,7 @@ def _parse_listing(item: dict, *, me: str) -> MarketListing:
     return MarketListing.model_validate(
         {
             **player,
+            "status_meaning": meaning(player.get("status")),
             "seller": owner.get("name", ""),
             "seller_id": owner_id,
             "from_computer": owner_id == COMPUTER_USER_ID,

@@ -78,7 +78,7 @@ def test_an_empty_watchlist_is_the_only_shape_ever_observed():
     assert result.players == []
 
 
-def _entry(player_id=3469, name="Delantero Vigilado", owner=None):
+def _entry(player_id=3469, name="Delantero Vigilado", owner=None, status="ACTIVE"):
     """Shaped exactly like a real entry: flat, and `quotedprice` without a capital P."""
     return {
         "id": player_id,
@@ -90,7 +90,7 @@ def _entry(player_id=3469, name="Delantero Vigilado", owner=None):
         "points": "-",
         "lastPoints": "13",
         "position": "striker",
-        "status": "ACTIVE",
+        "status": status,
         "statusInfo": "",
         "watched": True,
         "disabled": False,
@@ -207,3 +207,10 @@ def test_watchlist_writes_are_not_retried_after_a_401():
         _run(handler, lambda s, c: watch_player(s, c, 3469))
 
     assert len(handler.writes) == 1
+
+
+def test_a_status_code_is_read_out_in_words():
+    result = parse_watchlist({"tradables": [_entry(), _entry(status="RED_BANNED")]})
+
+    assert result.players[0].status_meaning == "available"
+    assert result.players[1].status_meaning == "suspended after a straight red"

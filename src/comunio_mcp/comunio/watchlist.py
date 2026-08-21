@@ -15,6 +15,7 @@ from typing import Any
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.models import WatchedPlayer, Watchlist, WatchResult
 from comunio_mcp.comunio.session import Session
+from comunio_mcp.comunio.statuses import meaning
 
 WATCHLIST_LINK = "game:watchlist"
 
@@ -46,6 +47,7 @@ def _parse_entry(entry: dict) -> WatchedPlayer:
         club=club.get("name", ""),
         position=entry.get("position", ""),
         status=entry.get("status", ""),
+        status_meaning=meaning(entry.get("status")),
         status_info=entry.get("statusInfo"),
         disabled=bool(entry.get("disabled")),
         quoted_price=entry.get("quotedprice", 0),

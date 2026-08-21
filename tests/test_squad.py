@@ -134,3 +134,12 @@ def test_injured_is_a_distinct_status_from_weakened(rival_squad_response):
     assert [p.status for p in unavailable] == ["INJURED", "RED_BANNED"]
     assert unavailable[0].status_info == "Fractura de peroné"
     assert squad.summary.unavailable == 2
+
+
+def test_a_status_code_is_read_out_in_words(squad):
+    # `WEAKENED` says nothing on its own. `get_player` has always translated it; the
+    # squad is where a model reads eighteen of them at once.
+    by_name = {player.name: player for player in squad.players}
+
+    assert by_name["Medio Uno"].status_meaning == "carrying a knock"
+    assert by_name["Portero Uno"].status_meaning == "available"
