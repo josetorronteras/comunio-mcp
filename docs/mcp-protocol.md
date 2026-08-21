@@ -164,8 +164,9 @@ From the official build-server tutorial:
 - **Never write to stdout in a stdio server** — `print()` corrupts the JSON-RPC stream. Use
   `logging.getLogger(__name__)`, which writes to stderr.
 
-> The exact `MCPServer` API above is copied from the docs. Verify it against the installed SDK
-> version before relying on it.
+> The exact `MCPServer` API above is copied from the docs. It was checked against the installed
+> 2.0.0 package inside the container — see Decision 3 in [architecture.md](architecture.md), which
+> also records what the docs got wrong.
 
 ## 6. What this means for Comunio MCP
 
