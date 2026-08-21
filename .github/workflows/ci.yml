@@ -24,8 +24,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # `docker compose run` reuses the image just built (tag `comunio-mcp:latest`
-      # matches what the compose file references) instead of rebuilding it without
-      # the GHA cache.
       - name: Run tests
-        run: docker compose run --rm test
+        run: |
+          docker compose run --rm -v ${{ github.workspace }}:/out test \
+            -q --cov=comunio_mcp --cov-report=xml:/out/coverage.xml --junitxml=/out/junit.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: tests
+          disable_search: true
+          fail_ci_if_error: false
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: junit.xml
+          flags: tests
+          disable_search: true
+          fail_ci_if_error: false
