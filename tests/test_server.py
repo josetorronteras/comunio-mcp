@@ -28,3 +28,11 @@ def test_only_accepting_an_offer_is_destructive() -> None:
     }
 
     assert destructive == {"accept_offer"}
+
+
+def test_every_tool_has_a_title() -> None:
+    # The name is for the model; the title is what a host shows the user when it asks
+    # whether to run a write tool, and that prompt is where approval happens.
+    tools = asyncio.run(mcp.list_tools())
+
+    assert all(tool.title for tool in tools)

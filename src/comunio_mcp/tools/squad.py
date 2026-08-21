@@ -10,7 +10,10 @@ from comunio_mcp.context import AppContext, require_comunio, require_session
 
 
 def register(mcp: MCPServer) -> None:
-    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+    @mcp.tool(
+        title="Squad",
+        annotations=ToolAnnotations(read_only_hint=True),
+    )
     async def get_squad(ctx: Context[AppContext], manager_id: int | None = None) -> Squad:
         """Get every player in a squad, with availability, scoring, prices and lineup
         state. Defaults to the signed-in manager's own squad.

@@ -11,6 +11,7 @@ from comunio_mcp.context import AppContext, require_comunio, require_session
 
 def register(mcp: MCPServer) -> None:
     @mcp.tool(
+        title="Put a player up for sale",
         annotations=ToolAnnotations(
             read_only_hint=False,
             # Reversible: `unlist_player_from_market` takes it straight back off.

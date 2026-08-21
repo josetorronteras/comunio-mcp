@@ -16,7 +16,10 @@ DEFAULT_LIMIT = 20
 
 
 def register(mcp: MCPServer) -> None:
-    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+    @mcp.tool(
+        title="League news",
+        annotations=ToolAnnotations(read_only_hint=True),
+    )
     async def get_news(
         ctx: Context[AppContext],
         limit: Annotated[int, Field(ge=1)] = DEFAULT_LIMIT,
