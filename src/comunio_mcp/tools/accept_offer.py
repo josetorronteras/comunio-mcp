@@ -11,6 +11,7 @@ from comunio_mcp.context import AppContext, require_comunio, require_session
 
 def register(mcp: MCPServer) -> None:
     @mcp.tool(
+        title="Accept an offer and sell the player",
         annotations=ToolAnnotations(
             read_only_hint=False,
             # The only one. The player is gone the moment this returns.

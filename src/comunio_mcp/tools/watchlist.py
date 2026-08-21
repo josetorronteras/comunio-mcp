@@ -12,7 +12,10 @@ from comunio_mcp.context import AppContext, require_comunio, require_session
 
 
 def register(mcp: MCPServer) -> None:
-    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+    @mcp.tool(
+        title="Watchlist",
+        annotations=ToolAnnotations(read_only_hint=True),
+    )
     async def get_watchlist(ctx: Context[AppContext]) -> Watchlist:
         """Get the players the manager is keeping an eye on.
 
@@ -25,6 +28,7 @@ def register(mcp: MCPServer) -> None:
         return await fetch_watchlist(require_session(app), require_comunio(app))
 
     @mcp.tool(
+        title="Watch a player",
         annotations=ToolAnnotations(
             read_only_hint=False,
             destructive_hint=False,
@@ -42,6 +46,7 @@ def register(mcp: MCPServer) -> None:
         return await add_to_watchlist(require_session(app), require_comunio(app), player_id)
 
     @mcp.tool(
+        title="Stop watching a player",
         annotations=ToolAnnotations(
             read_only_hint=False,
             destructive_hint=False,

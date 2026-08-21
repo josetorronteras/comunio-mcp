@@ -9,7 +9,10 @@ from comunio_mcp.context import AppContext, require_session
 
 
 def register(mcp: MCPServer) -> None:
-    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+    @mcp.tool(
+        title="Account and league rules",
+        annotations=ToolAnnotations(read_only_hint=True),
+    )
     async def get_account(ctx: Context[AppContext]) -> AccountSnapshot:
         """Get the manager's current budget, squad totals and formation, plus the
         league rules that decide which moves are legal.

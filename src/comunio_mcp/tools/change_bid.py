@@ -11,6 +11,7 @@ from comunio_mcp.context import AppContext, require_comunio, require_session
 
 def register(mcp: MCPServer) -> None:
     @mcp.tool(
+        title="Change a bid",
         annotations=ToolAnnotations(
             read_only_hint=False,
             # Still queued until the transfer round, and still withdrawable.

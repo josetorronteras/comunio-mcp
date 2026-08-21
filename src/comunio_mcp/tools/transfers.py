@@ -13,7 +13,10 @@ from comunio_mcp.context import AppContext, require_comunio, require_session
 
 
 def register(mcp: MCPServer) -> None:
-    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+    @mcp.tool(
+        title="Completed transfers",
+        annotations=ToolAnnotations(read_only_hint=True),
+    )
     async def get_transfers(
         ctx: Context[AppContext],
         limit: Annotated[int, Field(ge=1)] = DEFAULT_LIMIT,

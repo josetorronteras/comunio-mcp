@@ -7,6 +7,11 @@ Every tool named `get_*` only reads and is always safe to call. Everything else 
 the manager's team or spends their money, and is marked `read_only_hint=False` so a client
 can tell them apart and ask before running one.
 
+Every tool also carries a **`title`** — a short display name such as "Accept an offer and
+sell the player". The name is what the model calls; the title is what a host puts in front
+of the user when it asks whether to go ahead, and under Decision 2 that prompt is where
+approval happens.
+
 | Tool | Kind | Arguments | Returns |
 | --- | --- | --- | --- |
 | `get_account` | read | — | Budget, squad totals, formation and league rules |

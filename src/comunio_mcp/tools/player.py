@@ -10,7 +10,10 @@ from comunio_mcp.context import AppContext, require_comunio, require_session
 
 
 def register(mcp: MCPServer) -> None:
-    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+    @mcp.tool(
+        title="Player detail",
+        annotations=ToolAnnotations(read_only_hint=True),
+    )
     async def get_player(ctx: Context[AppContext], player_id: int) -> PlayerDetail:
         """Get everything Comunio knows about one player. Ids come from `get_squad`,
         `get_market` or `get_offers`.

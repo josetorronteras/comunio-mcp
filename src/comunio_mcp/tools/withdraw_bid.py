@@ -11,6 +11,7 @@ from comunio_mcp.context import AppContext, require_comunio, require_session
 
 def register(mcp: MCPServer) -> None:
     @mcp.tool(
+        title="Withdraw a bid",
         annotations=ToolAnnotations(
             read_only_hint=False,
             # The bid is gone, but a new one can be placed while the market is open.

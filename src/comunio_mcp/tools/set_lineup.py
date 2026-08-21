@@ -14,6 +14,7 @@ FORMATIONS = ", ".join(sorted(TACTICS))
 
 def register(mcp: MCPServer) -> None:
     @mcp.tool(
+        title="Set the lineup",
         annotations=ToolAnnotations(
             read_only_hint=False,
             # A lineup can be set again until the matchday starts.
