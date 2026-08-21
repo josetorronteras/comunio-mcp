@@ -109,6 +109,16 @@ def test_an_empty_squad_does_not_crash():
     assert squad.summary.total == 0
 
 
+def test_a_response_without_items_reads_as_an_empty_squad():
+    # Every other parser here reaches for its collection with `.get`. This one used a
+    # subscript, so a response missing `items` came back as a bare KeyError instead of
+    # the SessionError-style message the rest of the code produces.
+    squad = parse_squad({"tactic": ""}, me=USER_ID)
+
+    assert squad.players == []
+    assert squad.summary.total == 0
+
+
 def test_a_rival_squad_is_parsed_and_not_marked_as_mine(rival_squad_response):
     squad = parse_squad(rival_squad_response, me=USER_ID)
 

@@ -136,7 +136,6 @@ class Account(ComunioModel):
     tactic: str = Field(description="Current formation, e.g. '442'")
 
 
-
 class AccountSnapshot(ComunioModel):
     """Everything the index endpoint tells us that is worth knowing.
 
@@ -257,7 +256,6 @@ class SquadPlayer(ComunioModel):
     watched: bool = Field(description="On the manager's watchlist")
 
 
-
 class MarketListing(ComunioModel):
     """One player up for sale.
 
@@ -299,7 +297,6 @@ class MarketListing(ComunioModel):
     listed_at: datetime = Field(description="When the listing appeared")
     remaining: int = Field(description="Comunio's countdown on the listing")
     watched: bool = Field(description="On the manager's watchlist")
-
 
 
 class MarketSummary(ComunioModel):
@@ -346,7 +343,6 @@ class OfferPlayer(ComunioModel):
     trend: int = Field(description="Price movement, negative when falling")
 
 
-
 class Offer(ComunioModel):
     offer_id: int = Field(description="Offer identifier, needed to accept, decline or withdraw")
     type: str = Field(description="What kind of trade, e.g. SALE")
@@ -373,7 +369,6 @@ class Offer(ComunioModel):
     )
     created_at: datetime = Field(description="When the offer was made")
     changed_at: datetime = Field(description="When it was last modified")
-
 
 
 class OffersSummary(ComunioModel):
