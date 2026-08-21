@@ -160,13 +160,15 @@ buyout clauses).
 ## The squad: `game:squad`
 
 `/users/:userId/squad`, no community id — see the note above. Returns `items[]`, the
-current `tactic`, and links to add or remove a player from the market (write endpoints,
-not used yet).
+current `tactic`, and links to add or remove a player from the market. Those two write
+endpoints are documented under [Write endpoints](#write-endpoints) and are reached through
+the market link rather than from here.
 
 Per player it carries availability, scoring, prices, lineup state and the next fixture.
 `status` is `ACTIVE` or something like `WEAKENED`, with `statusInfo` naming the injury.
-`nextMatch.kickoff` is a timezone-aware timestamp and is where a lineup deadline will
-come from.
+`nextMatch.kickoff` is a timezone-aware timestamp, and it is the only thing in the API
+that says when a lineup stops being changeable. It is passed through as it arrives; working
+out what to do about the deadline is the client's.
 
 ### "No data" is encoded five different ways
 
@@ -490,6 +492,42 @@ Announcement text arrives as markup — tags, `<br />`, and an entity per accent
 (`&iexcl;`, `&aacute;`). `get_news` strips tags **before** unescaping entities, so an
 `&lt;` in the copy cannot become a tag that the stripper then removes.
 
+## The watchlist: `game:watchlist`
+
+`/communities/:communityId/users/:userId/watchlist`. A shortlist of players being kept an
+eye on; it holds no money and changes nothing about the squad.
+
+### Entries are under `tradables`, not `items`
+
+Every other collection in this API returns `items[]`. This one returns `tradables[]`, and
+its entries are **flat** — no `_embedded`, no nesting — unlike the market's.
+
+### `owner` is null when nobody holds the player
+
+The one field worth reading closely. A watched player with `owner: null` is unowned and
+can only ever arrive through the market; one whose `owner` is a manager needs a deal or a
+buyout clause. `get_watchlist` surfaces this per player as `unowned` and counts it.
+
+### `quotedprice`, lowercase
+
+The squad's spelling, not the market's `quotedPrice`. Third variant of the same concept
+across four endpoints — see [Four spellings of one field](#four-spellings-of-one-field).
+
+### Three operations, one path
+
+| | Method | Body | Response |
+| --- | --- | --- | --- |
+| Read | `GET …/watchlist` | — | `{"tradables": [...]}` |
+| Add | `POST …/watchlist/players/{id}` | **empty** `{}` | fifteen bytes; a bare `true` would not be out of character |
+| Remove | `DELETE …/watchlist/players/{id}` | **also `{}`** | a status object |
+
+Two things here are worth stating rather than rediscovering. **The `DELETE` carries a JSON
+body**, which is unusual enough that `ComunioClient.delete` exists specifically to send
+one. And **add and remove do not answer in the same shape**, so `_accepted()` treats both
+`{"status": "OK"}` and a bare `true` as success.
+
+Like every other write, neither is retried after a 401.
+
 ## Player detail: `game:tradable`
 
 `/communities/:communityId/users/:userId/players/:playerId` — the `detailedInfo` link that
@@ -725,8 +763,10 @@ rules.
 
 ## Not yet known
 
-- The *response shape* of every endpoint other than `/login` and `/`. The routes are all
-  known from `_links`; what they return is not.
+- The response shape of the routes **not documented above**. Nine are mapped —
+  the index, squad, standings, market, offers, offer history, news, player detail and the
+  write endpoints — out of the roughly ninety names in `_links`. The rest are known only
+  as routes.
 - Whether the `authorization` header is *required* on a refresh. We send it because the
   web app does, and it works; refreshing without it has not been tried.
 - Which of the browser headers are load-bearing. The full set works; no subset has been

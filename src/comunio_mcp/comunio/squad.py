@@ -2,7 +2,8 @@
 
 The richest endpoint in the API and the one the lineup and market work builds on. It
 carries availability (`status`, `statusInfo`), scoring, prices, who is currently lined up,
-and each player's next fixture — which is where a lineup deadline will come from.
+and each player's next fixture, the only thing in the API that says when a lineup stops
+being changeable.
 """
 
 from collections import Counter
