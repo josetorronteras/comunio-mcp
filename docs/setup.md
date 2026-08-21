@@ -3,7 +3,8 @@
 ## Requirements
 
 Docker with `docker compose`. Nothing else needs to be installed on the host — no Python,
-no package manager.
+no package manager. (An alternative path without Docker, for hosts that already run
+`uv`, is covered under [Without Docker](#without-docker-uvx) below.)
 
 ## Build
 
@@ -45,6 +46,46 @@ is not there) and restart the app:
 
 `-i` is required — without it the container gets no stdin and the client sees a server
 that never answers. `--rm` keeps a container from piling up on every launch.
+
+### Without Docker (`uvx`)
+
+The package is a regular pip-installable Python project (see `pyproject.toml`), so any
+host with [`uv`](https://docs.astral.sh/uv/) installed can run it straight from the git
+repository, without building the image and without a local clone:
+
+```bash
+uvx --from git+https://github.com/josetorronteras/comunio-mcp@<commit-sha> comunio-mcp
+```
+
+Pin `<commit-sha>` to an exact commit rather than `@main` — there is no compatibility
+guarantee between commits yet, and an unpinned ref can change under you on every restart.
+
+#### Claude Code
+
+```bash
+claude mcp add comunio -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@<commit-sha> comunio-mcp
+```
+
+#### Claude Desktop
+
+```json
+{
+  "mcpServers": {
+    "comunio": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/josetorronteras/comunio-mcp@<commit-sha>",
+        "comunio-mcp"
+      ]
+    }
+  }
+}
+```
+
+This is also the route MCP gateways that spawn stdio servers directly use instead of
+running each one in its own container — for example
+[MCPJungle](https://github.com/mcpjungle/mcpjungle).
 
 ## Checking it works
 
@@ -104,3 +145,35 @@ path to your `.env`:
 
 The `--env-file` form keeps the password out of the config file. Details of the
 authentication flow are in [comunio-api.md](comunio-api.md).
+
+For the `uvx` route, the client sets them the same way it sets any environment variable
+for a process it spawns. Claude Code:
+
+```bash
+claude mcp add comunio -e COMUNIO_USERNAME=you -e COMUNIO_PASSWORD=secret \
+  -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@<commit-sha> comunio-mcp
+```
+
+Claude Desktop, via `env`:
+
+```json
+{
+  "mcpServers": {
+    "comunio": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/josetorronteras/comunio-mcp@<commit-sha>",
+        "comunio-mcp"
+      ],
+      "env": {
+        "COMUNIO_USERNAME": "you",
+        "COMUNIO_PASSWORD": "secret"
+      }
+    }
+  }
+}
+```
+
+An MCP gateway that registers this server via a manifest (rather than a per-client
+config) passes the same variables through its own `env` block instead.
