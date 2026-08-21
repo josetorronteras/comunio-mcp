@@ -86,3 +86,7 @@ def test_no_offers_does_not_crash():
 
     assert offers.offers == []
     assert offers.summary.incoming_total == 0
+
+
+def test_a_status_code_is_read_out_in_words(offers):
+    assert offers.offers[0].player.status_meaning == "available"

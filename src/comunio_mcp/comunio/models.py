@@ -200,6 +200,9 @@ class SquadPlayer(ComunioModel):
 
     # Availability
     status: str = Field(description="ACTIVE, or WEAKENED and similar when unavailable")
+    status_meaning: MissingStr = Field(
+        default=None, description="Plain-language reading of the status code"
+    )
     status_info: MissingStr = Field(
         default=None,
         validation_alias="statusInfo",
@@ -268,6 +271,9 @@ class MarketListing(ComunioModel):
     position: str = Field(description="keeper, defender, midfielder or striker")
 
     status: str = Field(description="ACTIVE, or WEAKENED and similar when unavailable")
+    status_meaning: MissingStr = Field(
+        default=None, description="Plain-language reading of the status code"
+    )
     status_info: MissingStr = Field(
         default=None, validation_alias="statusInfo", description="Why the player is unavailable"
     )
@@ -325,6 +331,9 @@ class OfferPlayer(ComunioModel):
     club: Club
     position: str = Field(description="keeper, defender, midfielder or striker")
     status: str = Field(description="ACTIVE, or WEAKENED and similar when unavailable")
+    status_meaning: MissingStr = Field(
+        default=None, description="Plain-language reading of the status code"
+    )
     status_info: MissingStr = Field(
         default=None, validation_alias="statusInfo", description="Why the player is unavailable"
     )
@@ -749,6 +758,9 @@ class WatchedPlayer(ComunioModel):
     position: str = Field(description="Where they play")
 
     status: str = Field(description="Availability code")
+    status_meaning: MissingStr = Field(
+        default=None, description="Plain-language reading of the status code"
+    )
     status_info: MissingStr = Field(default=None, description="Why they are unavailable")
     disabled: bool = Field(description="Whether the league has this player disabled")
 

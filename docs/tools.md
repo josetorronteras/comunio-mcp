@@ -75,7 +75,7 @@ The richest endpoint, and what the lineup and market work builds on.
 
 | Group | Fields |
 | --- | --- |
-| Availability | `status`, `status_info` (names the injury), `next_match` with its `kickoff` |
+| Availability | `status`, `status_meaning` (the code in words), `status_info` (names the injury), `next_match` with its `kickoff` |
 | Scoring | `points`, `last_points`, `average_points`, `matchday_points`, `motm` |
 | Lineup | `linedup`, `substitute`, `lineup_slot` |
 | Market | `quoted_price`, `recommended_price`, `on_market`, `is_exchangeable`, `has_accepted_offers`, `watched` |
@@ -110,6 +110,13 @@ Comunio encodes "no data" five different ways in this one endpoint. The model re
 
 `status` is an open set — `ACTIVE`, `WEAKENED`, `INJURED` and `RED_BANNED` seen so far —
 so it stays a string. `summary.unavailable` counts everything that is not `ACTIVE`.
+
+**`status_meaning`** carries the same code in words: `WEAKENED` reads as "carrying a
+knock", `YELLOW_RED_BANNED` as "suspended after a second yellow". The code stays exactly
+as Comunio sent it and an unrecognised one comes back as `null` rather than failing, so
+nothing is lost by it. Every tool that returns a player's status returns this alongside —
+`get_squad`, `get_market`, `get_offers`, `get_watchlist` and `get_player`. The full
+vocabulary is in [comunio-api.md](comunio-api.md).
 
 ## `get_standings`
 
@@ -160,7 +167,8 @@ Every player currently up for sale.
 `closes_at` is when the current transfer round is processed — bids have to be in before
 it. `daily_transfers_processed` says whether today's round has already run.
 
-Per listing: `player_id`, `name`, `club`, `position`, `status` and `status_info`,
+Per listing: `player_id`, `name`, `club`, `position`, `status`, `status_meaning` and
+`status_info`,
 `quoted_price`, `recommended_price`, `trend`, `listed_at`, `remaining`, `watched`, and
 three fields about the seller.
 
@@ -190,7 +198,8 @@ the league's dynamic credit factor lets it exceed cash in hand. Anything sizing 
 should use this.
 
 Per offer: `offer_id`, `type`, `state`, `price`, `created_at`, `changed_at`, `is_exchange`,
-the `player`, and:
+the `player` (with `status`, `status_meaning` and `status_info`, so an offer for an injured
+player says so), and:
 
 | Field | Meaning |
 | --- | --- |
@@ -370,8 +379,9 @@ Annotated `read_only_hint=True`.
 
 ### Computed server-side
 
-- **`status_meaning`** spells out the code. There are thirteen of them, and
-  `YELLOW_RED_BANNED` is not something to leave an agent to interpret.
+- **`status_meaning`** spells out the code, as it does in `get_squad`, `get_market`,
+  `get_offers` and `get_watchlist`. There are thirteen of them, and `YELLOW_RED_BANNED`
+  is not something to leave an agent to interpret.
 - **`available`** is true only for `ACTIVE`, so nothing has to know which of the other
   twelve codes mean the player cannot be fielded.
 
@@ -682,3 +692,7 @@ retried.
 
 This endpoint sends `quotedprice` — the squad's spelling, not the market's `quotedPrice`.
 That is now the third variant of the same concept across four endpoints.
+
+Per player, alongside the prices and the owner: `status`, `status_meaning` and
+`status_info`, so a watched player who is suspended reads the same way here as in
+`get_squad`.

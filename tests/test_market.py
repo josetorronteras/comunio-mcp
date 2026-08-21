@@ -96,3 +96,10 @@ def test_an_empty_market_does_not_crash():
     assert market.listings == []
     assert market.closes_at is None
     assert market.summary.total == 0
+
+
+def test_a_status_code_is_read_out_in_words(market):
+    injured = [listing for listing in market.listings if listing.status != "ACTIVE"]
+
+    assert injured[0].status_meaning == "carrying a knock"
+    assert market.listings[0].status_meaning == "available"

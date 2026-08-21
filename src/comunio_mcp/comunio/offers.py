@@ -15,6 +15,7 @@ from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.market import COMPUTER_USER_ID
 from comunio_mcp.comunio.models import Offer, Offers, OffersSummary
 from comunio_mcp.comunio.session import Session
+from comunio_mcp.comunio.statuses import meaning
 
 OFFERS_LINK = "game:readOffers"
 
@@ -59,7 +60,7 @@ def _parse_offer(item: dict, *, me: str) -> Offer:
         {
             **item,
             "offer_id": item.get("id"),
-            "player": player,
+            "player": {**player, "status_meaning": meaning(player.get("status"))},
             "price": price,
             "premium": price - quoted,
             "premium_pct": round((price - quoted) / quoted * 100, 1) if quoted else 0.0,

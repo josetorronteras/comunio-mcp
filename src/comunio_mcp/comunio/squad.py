@@ -11,6 +11,7 @@ from typing import Any
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.models import Squad, SquadPlayer, SquadSummary
 from comunio_mcp.comunio.session import Session
+from comunio_mcp.comunio.statuses import meaning
 
 SQUAD_LINK = "game:squad"
 
@@ -51,7 +52,13 @@ def _parse_player(item: dict) -> SquadPlayer:
     # Flatten the two nested objects worth keeping and let the allowlist drop the rest,
     # which is mostly `_links` for logos, photos and watchlist actions.
     next_match = _parse_next_match(item.get("nextMatch"))
-    return SquadPlayer.model_validate({**item, "nextMatch": next_match})
+    return SquadPlayer.model_validate(
+        {
+            **item,
+            "nextMatch": next_match,
+            "status_meaning": meaning(item.get("status")),
+        }
+    )
 
 
 def _parse_next_match(match: dict | None) -> dict | None:
