@@ -59,6 +59,17 @@ Then ask your assistant how your team is doing. Full instructions, including Cla
 
 Contributor conventions are in [CLAUDE.md](CLAUDE.md).
 
+## Versioning
+
+Releases follow [semantic versioning](https://semver.org/), and what it covers is **the MCP
+surface**: tool names, their input schemas, and the fields their responses carry. Renaming a
+tool, dropping a parameter or removing a field from a response is a major version. Adding a
+tool, an optional parameter or a field is a minor one.
+
+What it cannot cover is Comunio. This talks to an unofficial API that can change or break
+without notice, and no version number here can promise otherwise. When it does change, the
+fix ships as a patch or a minor — the tools stay the same shape.
+
 ## License
 
 [MIT](LICENSE).

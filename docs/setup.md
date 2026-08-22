@@ -54,16 +54,17 @@ host with [`uv`](https://docs.astral.sh/uv/) installed can run it straight from 
 repository, without building the image and without a local clone:
 
 ```bash
-uvx --from git+https://github.com/josetorronteras/comunio-mcp@<commit-sha> comunio-mcp
+uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.0 comunio-mcp
 ```
 
-Pin `<commit-sha>` to an exact commit rather than `@main` — there is no compatibility
-guarantee between commits yet, and an unpinned ref can change under you on every restart.
+Pin a **release tag** rather than `@main`: an unpinned ref changes under you on every
+restart, and a tag is the only ref that promises the tools will keep the shape your client
+saw. A commit SHA works too and is what a gateway manifest usually wants.
 
 #### Claude Code
 
 ```bash
-claude mcp add comunio -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@<commit-sha> comunio-mcp
+claude mcp add comunio -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.0 comunio-mcp
 ```
 
 #### Claude Desktop
@@ -75,7 +76,7 @@ claude mcp add comunio -- uvx --from git+https://github.com/josetorronteras/comu
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/josetorronteras/comunio-mcp@<commit-sha>",
+        "git+https://github.com/josetorronteras/comunio-mcp@v1.0.0",
         "comunio-mcp"
       ]
     }
@@ -151,7 +152,7 @@ for a process it spawns. Claude Code:
 
 ```bash
 claude mcp add comunio -e COMUNIO_USERNAME=you -e COMUNIO_PASSWORD=secret \
-  -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@<commit-sha> comunio-mcp
+  -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.0 comunio-mcp
 ```
 
 Claude Desktop, via `env`:
@@ -163,7 +164,7 @@ Claude Desktop, via `env`:
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/josetorronteras/comunio-mcp@<commit-sha>",
+        "git+https://github.com/josetorronteras/comunio-mcp@v1.0.0",
         "comunio-mcp"
       ],
       "env": {
