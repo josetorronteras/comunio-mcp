@@ -246,6 +246,21 @@ data under `live`:
 Observed on a live league: one manager came back `false` under `total` and `true` under
 `live` in the same minute, with no transfer between the two calls.
 
+### Under `live`, numeric fields arrive present but null
+
+`total` sends whole numbers for `totalPoints`, `totalPerennialPoints`,
+`playersPossiblyScoredAmount` and `teamValue`. Under `live` the same keys can come back
+**present with a `null` value** — `totalPerennialPoints` does so for every row on a
+league with no carried-over points.
+
+The distinction matters when parsing: `payload.get("totalPerennialPoints", 0)` returns
+`None` here, because a `dict.get` default only fires when the key is *missing*, not when
+it is present and null. Reading these with `... or 0` is what keeps a null out of a
+field the model types as `int`.
+
+Do not treat it as a field that is sometimes absent, and do not widen the model to
+accept `None`: a null here means zero, and the table is more useful with the zero.
+
 ### `_embedded`, a shape the index does not use
 
 Each row keeps the figures at the top and nests the manager and their team underneath:
