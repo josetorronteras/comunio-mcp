@@ -62,11 +62,15 @@ def _parse_row(item: dict, *, rank: int, me: str) -> StandingsRow:
         # and transfers. Without stripping, the same manager fails to match
         # across tools.
         manager=(user.get("name") or "").strip(),
-        total_points=item.get("totalPoints", 0),
+        # `or`, no un default de `.get`: en la respuesta de `period=live` estas
+        # claves vienen presentes con valor null, y un default solo salta cuando
+        # la clave falta. `totalPerennialPoints` llega null ahí y reventaba la
+        # validación del modelo, dejando `live` inservible.
+        total_points=item.get("totalPoints") or 0,
         last_points=item.get("lastPoints"),
         live_points=item.get("livePoints"),
-        perennial_points=item.get("totalPerennialPoints", 0),
-        players_possibly_scoring=item.get("playersPossiblyScoredAmount", 0),
-        team_value=team.get("teamValue", 0),
-        negative_budget=user.get("negativeBudget", False),
+        perennial_points=item.get("totalPerennialPoints") or 0,
+        players_possibly_scoring=item.get("playersPossiblyScoredAmount") or 0,
+        team_value=team.get("teamValue") or 0,
+        negative_budget=user.get("negativeBudget") or False,
     )

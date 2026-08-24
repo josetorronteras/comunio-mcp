@@ -105,6 +105,30 @@ def test_the_live_period_carries_points_being_scored_right_now(live):
     assert by_name["Rival Dos"].live_points == 0
 
 
+def test_a_null_figure_is_read_as_zero(standings_live_response):
+    # The real `live` payload sends these keys present but null, which a `.get` default
+    # does not cover: the default only fires on a missing key. `totalPerennialPoints`
+    # arriving null used to fail model validation and made the whole period unusable.
+    nulled = json.loads(json.dumps(standings_live_response))
+    nulled["items"][0].update(
+        {
+            "totalPoints": None,
+            "totalPerennialPoints": None,
+            "playersPossiblyScoredAmount": None,
+        }
+    )
+    nulled["items"][0]["_embedded"]["teamInfo"]["teamValue"] = None
+    nulled["items"][0]["_embedded"]["user"]["negativeBudget"] = None
+
+    row = parse_standings(nulled, me=USER_ID).rows[0]
+
+    assert row.total_points == 0
+    assert row.perennial_points == 0
+    assert row.players_possibly_scoring == 0
+    assert row.team_value == 0
+    assert row.negative_budget is False
+
+
 def test_only_the_live_period_reports_who_is_broke(standings, live):
     # Under `total` the flag reads false for every manager, so a table asked for that way
     # cannot be used to tell who will score nothing this matchday.
