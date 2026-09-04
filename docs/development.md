@@ -7,6 +7,7 @@ Everything runs in Docker. The only thing you need on the host is Docker with
 
 ```
 pyproject.toml            project metadata, dependencies, ruff and pytest config
+server.json               the MCP Registry entry: name, image and environment variables
 Dockerfile                the single image, used for the server and for dev tasks
 docker-compose.yml        dev tasks: server, test, lint
 src/comunio_mcp/
@@ -63,6 +64,31 @@ answered.
 
 Useful methods for poking at the server: `server/discover` (identity, capabilities and
 supported protocol versions), `tools/list`, `tools/call`.
+
+## Releasing
+
+A release is a tag. Pushing `v<version>` runs
+[`.github/workflows/release.yml`](../.github/workflows/release.yml), which builds the
+image for `amd64` and `arm64`, pushes it to `ghcr.io/josetorronteras/comunio-mcp` as both
+`<version>` and `latest`, and then publishes `server.json` to the
+[MCP Registry](https://registry.modelcontextprotocol.io).
+
+The steps in order:
+
+1. Bump `version` in `pyproject.toml`.
+2. Bump `version` in `server.json`, and the tag in its `packages[0].identifier`. CI fails
+   the pull request if the three disagree, and the release workflow refuses a tag that
+   does not match `pyproject.toml`.
+3. Add the entry to [`CHANGELOG.md`](../CHANGELOG.md).
+4. Merge, then tag: `git tag v<version> && git push origin v<version>`.
+
+Two things the workflow needs from the repository, both one-off settings rather than
+secrets: `packages: write` for GHCR (granted in the workflow) and `id-token: write`, which
+is how the registry verifies the publisher over OIDC — no token is stored anywhere.
+
+The registry entry is owned by the `io.github.josetorronteras` namespace, proved by the
+`io.modelcontextprotocol.server.name` label in the Dockerfile. That label and the `name`
+in `server.json` must stay identical or publishing is rejected.
 
 ## Logging
 

@@ -2,30 +2,39 @@
 
 ## Requirements
 
-Docker with `docker compose`. Nothing else needs to be installed on the host — no Python,
-no package manager. (An alternative path without Docker, for hosts that already run
-`uv`, is covered under [Without Docker](#without-docker-uvx) below.)
+Docker. Nothing else needs to be installed on the host — no Python, no package manager,
+and no clone of this repository. (An alternative path without Docker, for hosts that
+already run `uv`, is covered under [Without Docker](#without-docker-uvx) below.)
 
-## Build
+## The image
 
-```bash
-git clone https://github.com/josetorronteras/comunio-mcp.git
-cd comunio-mcp
-docker compose build
+Releases are published to the GitHub Container Registry:
+
+```
+ghcr.io/josetorronteras/comunio-mcp:latest    # the current release
+ghcr.io/josetorronteras/comunio-mcp:1.0.2     # a specific one
 ```
 
-That produces the `comunio-mcp` image.
+Built for `linux/amd64` and `linux/arm64`, so it runs natively on Apple Silicon.
+
+Pin a version tag rather than `latest` if you want your client's tools to keep the shape
+it saw; `latest` moves on every release. Docker caches the image on first run, so there is
+nothing to build and nothing to pull by hand.
+
+Building it yourself is only needed for development — see
+[development.md](development.md).
 
 ## Connecting it to an MCP client
 
 The server uses the **stdio** transport, so the client launches the container itself and
-talks to it over stdin/stdout. Compose is not involved — it only exists for development
-tasks.
+talks to it over stdin/stdout.
 
 ### Claude Code
 
 ```bash
-claude mcp add comunio -- docker run -i --rm comunio-mcp
+claude mcp add comunio -- docker run -i --rm \
+  -e COMUNIO_USERNAME=you -e COMUNIO_PASSWORD=secret \
+  ghcr.io/josetorronteras/comunio-mcp
 ```
 
 ### Claude Desktop
@@ -38,14 +47,32 @@ is not there) and restart the app:
   "mcpServers": {
     "comunio": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "comunio-mcp"]
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "COMUNIO_USERNAME",
+        "-e", "COMUNIO_PASSWORD",
+        "ghcr.io/josetorronteras/comunio-mcp"
+      ],
+      "env": {
+        "COMUNIO_USERNAME": "you",
+        "COMUNIO_PASSWORD": "secret"
+      }
     }
   }
 }
 ```
 
+`-e VAR` without a value forwards the variable the client already set, which keeps the
+password in one place in the file rather than two.
+
 `-i` is required — without it the container gets no stdin and the client sees a server
 that never answers. `--rm` keeps a container from piling up on every launch.
+
+### A client that reads the MCP Registry
+
+The server is listed as **`io.github.josetorronteras/comunio`**. A client that installs
+from the registry finds the image and the environment variables it needs there, so the
+only thing left to supply is your account.
 
 ### Without Docker (`uvx`)
 
@@ -54,7 +81,7 @@ host with [`uv`](https://docs.astral.sh/uv/) installed can run it straight from 
 repository, without building the image and without a local clone:
 
 ```bash
-uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.0 comunio-mcp
+uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.2 comunio-mcp
 ```
 
 Pin a **release tag** rather than `@main`: an unpinned ref changes under you on every
@@ -64,7 +91,7 @@ saw. A commit SHA works too and is what a gateway manifest usually wants.
 #### Claude Code
 
 ```bash
-claude mcp add comunio -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.0 comunio-mcp
+claude mcp add comunio -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.2 comunio-mcp
 ```
 
 #### Claude Desktop
@@ -76,7 +103,7 @@ claude mcp add comunio -- uvx --from git+https://github.com/josetorronteras/comu
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/josetorronteras/comunio-mcp@v1.0.0",
+        "git+https://github.com/josetorronteras/comunio-mcp@v1.0.2",
         "comunio-mcp"
       ]
     }
@@ -115,7 +142,7 @@ message saying which variables are missing.
 To check the credentials work before wiring anything up:
 
 ```bash
-cp .env.example .env    # fill it in
+cp .env.example .env    # fill it in, from a clone of the repository
 docker compose run --rm auth-check
 ```
 
@@ -127,7 +154,7 @@ It logs in, refreshes, and reports how long the token lasts. It prints no token.
 claude mcp add comunio -- docker run -i --rm \
   -e COMUNIO_USERNAME=you \
   -e COMUNIO_PASSWORD=secret \
-  comunio-mcp
+  ghcr.io/josetorronteras/comunio-mcp
 ```
 
 For Claude Desktop, add them to the `args` array the same way, or use `--env-file` with a
@@ -138,7 +165,11 @@ path to your `.env`:
   "mcpServers": {
     "comunio": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "--env-file", "/absolute/path/to/.env", "comunio-mcp"]
+      "args": [
+        "run", "-i", "--rm",
+        "--env-file", "/absolute/path/to/.env",
+        "ghcr.io/josetorronteras/comunio-mcp"
+      ]
     }
   }
 }
@@ -152,7 +183,7 @@ for a process it spawns. Claude Code:
 
 ```bash
 claude mcp add comunio -e COMUNIO_USERNAME=you -e COMUNIO_PASSWORD=secret \
-  -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.0 comunio-mcp
+  -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.2 comunio-mcp
 ```
 
 Claude Desktop, via `env`:
@@ -164,7 +195,7 @@ Claude Desktop, via `env`:
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/josetorronteras/comunio-mcp@v1.0.0",
+        "git+https://github.com/josetorronteras/comunio-mcp@v1.0.2",
         "comunio-mcp"
       ],
       "env": {
