@@ -19,9 +19,14 @@ information, sexualised language or imagery, and sustained disruption of a discu
 
 ## Enforcement
 
-Report anything that breaches this by
-[opening a private security advisory](https://github.com/josetorronteras/comunio-mcp/security/advisories/new),
-which is the private channel this repository has. Reports are handled confidentially.
+Report harassment or abuse privately through
+[GitHub's report abuse form](https://github.com/contact/report-abuse), which reaches both
+GitHub and, for content in this repository, its maintainer. Reports are handled
+confidentially.
+
+Do not use the security advisory form for this — that channel exists for vulnerabilities
+in the code, and [SECURITY.md](SECURITY.md) describes what belongs there. Anything that
+is neither sensitive nor a breach of this document is fine as a normal issue.
 
 Maintainers may edit, hide or delete comments, and may block accounts, for behaviour they
 judge to breach this document.

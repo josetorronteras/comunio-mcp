@@ -33,9 +33,12 @@ talks to it over stdin/stdout.
 
 ```bash
 claude mcp add comunio -- docker run -i --rm \
-  -e COMUNIO_USERNAME=you -e COMUNIO_PASSWORD=secret \
+  --env-file "$HOME/.comunio.env" \
   ghcr.io/josetorronteras/comunio-mcp
 ```
+
+See [Credentials](#credentials) below for the file. Passing the password as
+`-e COMUNIO_PASSWORD=...` instead works, but your shell keeps it in its history.
 
 ### Claude Desktop
 
@@ -49,21 +52,16 @@ is not there) and restart the app:
       "command": "docker",
       "args": [
         "run", "-i", "--rm",
-        "-e", "COMUNIO_USERNAME",
-        "-e", "COMUNIO_PASSWORD",
+        "--env-file", "/absolute/path/to/.comunio.env",
         "ghcr.io/josetorronteras/comunio-mcp"
-      ],
-      "env": {
-        "COMUNIO_USERNAME": "you",
-        "COMUNIO_PASSWORD": "secret"
-      }
+      ]
     }
   }
 }
 ```
 
-`-e VAR` without a value forwards the variable the client already set, which keeps the
-password in one place in the file rather than two.
+`--env-file` keeps the password out of the config file entirely. Docker does not expand
+`~`, so the path has to be absolute.
 
 `-i` is required — without it the container gets no stdin and the client sees a server
 that never answers. `--rm` keeps a container from piling up on every launch.
@@ -129,6 +127,21 @@ To check without a client at all, see the direct JSON-RPC recipe in
 Your Comunio account is passed to the container as environment variables — the documented
 approach for stdio servers. They never go in the image or in git.
 
+Keep them in a file only you can read, and point Docker at it with `--env-file`:
+
+```bash
+install -m 600 /dev/null ~/.comunio.env
+$EDITOR ~/.comunio.env
+```
+
+```
+COMUNIO_USERNAME=you
+COMUNIO_PASSWORD=...
+```
+
+That keeps the password out of two places it is easy to leak from: your shell history and
+your MCP client's configuration file, which is world-readable on most setups.
+
 | Variable | Required | Default |
 | --- | --- | --- |
 | `COMUNIO_USERNAME` | yes | — |
@@ -150,62 +163,22 @@ It logs in, refreshes, and reports how long the token lasts. It prints no token.
 
 ### Passing them to the client
 
-```bash
-claude mcp add comunio -- docker run -i --rm \
-  -e COMUNIO_USERNAME=you \
-  -e COMUNIO_PASSWORD=secret \
-  ghcr.io/josetorronteras/comunio-mcp
-```
+The Docker examples above already do it: `--env-file` hands the container the file and
+nothing is written down anywhere else. Details of the authentication flow are in
+[comunio-api.md](comunio-api.md).
 
-For Claude Desktop, add them to the `args` array the same way, or use `--env-file` with a
-path to your `.env`:
-
-```json
-{
-  "mcpServers": {
-    "comunio": {
-      "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "--env-file", "/absolute/path/to/.env",
-        "ghcr.io/josetorronteras/comunio-mcp"
-      ]
-    }
-  }
-}
-```
-
-The `--env-file` form keeps the password out of the config file. Details of the
-authentication flow are in [comunio-api.md](comunio-api.md).
-
-For the `uvx` route, the client sets them the same way it sets any environment variable
-for a process it spawns. Claude Code:
+The `uvx` route has no container, so the client sets the variables for the process it
+spawns. Claude Code reads them from your environment if you give `-e` no value:
 
 ```bash
-claude mcp add comunio -e COMUNIO_USERNAME=you -e COMUNIO_PASSWORD=secret \
+set -a; . ~/.comunio.env; set +a
+claude mcp add comunio -e COMUNIO_USERNAME -e COMUNIO_PASSWORD \
   -- uvx --from git+https://github.com/josetorronteras/comunio-mcp@v1.0.2 comunio-mcp
 ```
 
-Claude Desktop, via `env`:
-
-```json
-{
-  "mcpServers": {
-    "comunio": {
-      "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/josetorronteras/comunio-mcp@v1.0.2",
-        "comunio-mcp"
-      ],
-      "env": {
-        "COMUNIO_USERNAME": "you",
-        "COMUNIO_PASSWORD": "secret"
-      }
-    }
-  }
-}
-```
+Claude Desktop has no equivalent, so the password does end up in
+`claude_desktop_config.json` under `env`. If that bothers you — and it should on a shared
+machine — use the Docker route with `--env-file` instead.
 
 An MCP gateway that registers this server via a manifest (rather than a per-client
-config) passes the same variables through its own `env` block instead.
+config) passes the same variables through its own `env` block.

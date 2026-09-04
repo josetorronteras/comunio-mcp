@@ -46,19 +46,25 @@ Nothing else needs to be installed on the host.
 
 ## Quick start
 
-The image is published, so there is nothing to clone and nothing to build:
+The image is published, so there is nothing to clone and nothing to build. Put your
+credentials in a file only you can read, rather than in a command your shell will
+remember:
 
 ```bash
+install -m 600 /dev/null ~/.comunio.env
+$EDITOR ~/.comunio.env      # COMUNIO_USERNAME=you
+                            # COMUNIO_PASSWORD=...
+
 claude mcp add comunio -- docker run -i --rm \
-  -e COMUNIO_USERNAME=you -e COMUNIO_PASSWORD=secret \
+  --env-file "$HOME/.comunio.env" \
   ghcr.io/josetorronteras/comunio-mcp
 ```
 
 Then ask your assistant how your team is doing — `get_account` is the quickest proof that
 the credentials work.
 
-For Claude Desktop, for keeping the password out of your config file with `--env-file`, and
-for the `uvx` route that skips Docker entirely, see [docs/setup.md](docs/setup.md).
+For Claude Desktop, for the `uvx` route that skips Docker entirely, and for what each
+variable does, see [docs/setup.md](docs/setup.md).
 
 ## Documentation
 
