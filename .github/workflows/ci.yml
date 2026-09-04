@@ -6,6 +6,29 @@ on:
     branches: [main]
 
 jobs:
+  # server.json is what the MCP Registry serves. Drift between it, pyproject.toml and
+  # the ownership label in the Dockerfile is only noticed at release time otherwise.
+  metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Check server.json agrees with the rest of the repo
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          name=$(jq -r .name server.json)
+
+          test "$(jq -r .version server.json)" = "$version" \
+            || { echo "server.json version != pyproject.toml version ($version)" >&2; exit 1; }
+
+          test "$(jq -r '.packages[0].identifier' server.json)" = "ghcr.io/${{ github.repository }}:$version" \
+            || { echo "server.json package identifier is not the image for $version" >&2; exit 1; }
+
+          grep -q "io.modelcontextprotocol.server.name=\"$name\"" Dockerfile \
+            || { echo "Dockerfile ownership label != server.json name ($name)" >&2; exit 1; }
+
   test:
     runs-on: ubuntu-latest
     steps:
