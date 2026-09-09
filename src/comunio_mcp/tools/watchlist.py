@@ -9,6 +9,7 @@ from comunio_mcp.comunio.watchlist import fetch_watchlist
 from comunio_mcp.comunio.watchlist import unwatch_player as remove_from_watchlist
 from comunio_mcp.comunio.watchlist import watch_player as add_to_watchlist
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 
 def register(mcp: MCPServer) -> None:
@@ -16,6 +17,7 @@ def register(mcp: MCPServer) -> None:
         title="Watchlist",
         annotations=ToolAnnotations(read_only_hint=True),
     )
+    @reporting_failures
     async def get_watchlist(ctx: Context[AppContext]) -> Watchlist:
         """Get the players the manager is keeping an eye on.
 
@@ -36,6 +38,7 @@ def register(mcp: MCPServer) -> None:
             idempotent_hint=True,
         )
     )
+    @reporting_failures
     async def watch_player(ctx: Context[AppContext], player_id: int) -> WatchResult:
         """Add a player to the manager's watchlist.
 
@@ -53,6 +56,7 @@ def register(mcp: MCPServer) -> None:
             idempotent_hint=True,
         )
     )
+    @reporting_failures
     async def unwatch_player(ctx: Context[AppContext], player_id: int) -> WatchResult:
         """Remove a player from the manager's watchlist.
 

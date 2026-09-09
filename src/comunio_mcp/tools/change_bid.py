@@ -7,6 +7,7 @@ from mcp.types import ToolAnnotations
 from comunio_mcp.comunio.actions import change_bid as change
 from comunio_mcp.comunio.models import BidResult
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 
 def register(mcp: MCPServer) -> None:
@@ -19,6 +20,7 @@ def register(mcp: MCPServer) -> None:
             idempotent_hint=False,
         )
     )
+    @reporting_failures
     async def change_bid(ctx: Context[AppContext], offer_id: int, price: int) -> BidResult:
         """Change the amount of a bid the manager has already placed.
 

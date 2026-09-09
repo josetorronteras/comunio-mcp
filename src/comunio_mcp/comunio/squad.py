@@ -12,7 +12,7 @@ from typing import Any
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.models import Squad, SquadPlayer, SquadSummary
 from comunio_mcp.comunio.session import Session
-from comunio_mcp.comunio.statuses import meaning
+from comunio_mcp.comunio.statuses import meaning, normalise
 
 SQUAD_LINK = "game:squad"
 
@@ -53,11 +53,15 @@ def _parse_player(item: dict) -> SquadPlayer:
     # Flatten the two nested objects worth keeping and let the allowlist drop the rest,
     # which is mostly `_links` for logos, photos and watchlist actions.
     next_match = _parse_next_match(item.get("nextMatch"))
+    # A null status here means available, and reaches both fields normalised so that
+    # `summary.unavailable` does not count an available player as unavailable.
+    status = normalise(item.get("status"))
     return SquadPlayer.model_validate(
         {
             **item,
             "nextMatch": next_match,
-            "status_meaning": meaning(item.get("status")),
+            "status": status,
+            "status_meaning": meaning(status),
         }
     )
 

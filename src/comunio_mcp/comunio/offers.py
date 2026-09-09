@@ -15,7 +15,7 @@ from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.market import COMPUTER_USER_ID
 from comunio_mcp.comunio.models import Offer, Offers, OffersSummary
 from comunio_mcp.comunio.session import Session
-from comunio_mcp.comunio.statuses import meaning
+from comunio_mcp.comunio.statuses import meaning, normalise
 
 OFFERS_LINK = "game:readOffers"
 
@@ -55,12 +55,13 @@ def _parse_offer(item: dict, *, me: str) -> Offer:
 
     price = item.get("price", 0)
     quoted = player.get("quotedPrice") or 0
+    status = normalise(player.get("status"))
 
     return Offer.model_validate(
         {
             **item,
             "offer_id": item.get("id"),
-            "player": {**player, "status_meaning": meaning(player.get("status"))},
+            "player": {**player, "status": status, "status_meaning": meaning(status)},
             "price": price,
             "premium": price - quoted,
             "premium_pct": round((price - quoted) / quoted * 100, 1) if quoted else 0.0,

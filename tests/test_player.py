@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 
 from comunio_mcp.comunio.player import parse_player
-from comunio_mcp.comunio.statuses import MEANINGS, meaning
+from comunio_mcp.comunio.statuses import MEANINGS, meaning, normalise
 from tests.conftest import MANAGER_NAME
 
 
@@ -103,6 +103,29 @@ def test_an_unknown_status_passes_through_untranslated():
     # Status is an open set, so a code we have not seen must not raise.
     assert meaning("SOMETHING_NEW") is None
     assert meaning(None) is None
+
+
+def test_a_null_status_leaves_the_player_available(player_response):
+    # `game:player` still answers "ACTIVE" where the squad and market send null, so this
+    # is prevention rather than a fix. `available` is what a client reads to decide
+    # whether to field the player, and a null must not turn into "cannot be counted on".
+    nulled = json.loads(json.dumps(player_response))
+    nulled.update({"status": None, "statusInfo": None})
+
+    player = parse_player(nulled)
+
+    assert player.status == "ACTIVE"
+    assert player.status_meaning == "available"
+    assert player.available is True
+
+
+def test_only_a_null_status_is_normalised():
+    # The squad and market endpoints write "available" as null. Nothing else is read as
+    # ACTIVE: an unseen code is passed through rather than guessed at.
+    assert normalise(None) == "ACTIVE"
+    assert normalise("INJURED") == "INJURED"
+    assert normalise("SOMETHING_NEW") == "SOMETHING_NEW"
+    assert normalise("") == ""
 
 
 def _never_bought(player_response):
