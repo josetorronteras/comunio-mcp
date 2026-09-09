@@ -7,6 +7,7 @@ from mcp.types import ToolAnnotations
 from comunio_mcp.comunio.actions import list_on_market
 from comunio_mcp.comunio.models import ListingResult
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 
 def register(mcp: MCPServer) -> None:
@@ -19,6 +20,7 @@ def register(mcp: MCPServer) -> None:
             idempotent_hint=False,
         )
     )
+    @reporting_failures
     async def list_player_on_market(
         ctx: Context[AppContext], player_id: int, price: int
     ) -> ListingResult:

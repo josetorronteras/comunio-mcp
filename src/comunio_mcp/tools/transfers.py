@@ -10,6 +10,7 @@ from pydantic import Field
 from comunio_mcp.comunio.models import Transfers
 from comunio_mcp.comunio.transfers import DEFAULT_LIMIT, fetch_transfers
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 
 def register(mcp: MCPServer) -> None:
@@ -17,6 +18,7 @@ def register(mcp: MCPServer) -> None:
         title="Completed transfers",
         annotations=ToolAnnotations(read_only_hint=True),
     )
+    @reporting_failures
     async def get_transfers(
         ctx: Context[AppContext],
         limit: Annotated[int, Field(ge=1)] = DEFAULT_LIMIT,

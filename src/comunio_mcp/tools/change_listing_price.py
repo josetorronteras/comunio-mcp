@@ -7,6 +7,7 @@ from mcp.types import ToolAnnotations
 from comunio_mcp.comunio.actions import set_asking_price as change_price
 from comunio_mcp.comunio.models import AskingPriceResult
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 
 def register(mcp: MCPServer) -> None:
@@ -19,6 +20,7 @@ def register(mcp: MCPServer) -> None:
             idempotent_hint=True,
         )
     )
+    @reporting_failures
     async def change_listing_price(
         ctx: Context[AppContext], player_id: int, price: int
     ) -> AskingPriceResult:

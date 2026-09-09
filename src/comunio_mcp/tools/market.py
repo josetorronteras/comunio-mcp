@@ -7,6 +7,7 @@ from mcp.types import ToolAnnotations
 from comunio_mcp.comunio.market import fetch_market
 from comunio_mcp.comunio.models import Market
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 
 def register(mcp: MCPServer) -> None:
@@ -14,6 +15,7 @@ def register(mcp: MCPServer) -> None:
         title="Transfer market",
         annotations=ToolAnnotations(read_only_hint=True),
     )
+    @reporting_failures
     async def get_market(ctx: Context[AppContext]) -> Market:
         """Get every player currently up for sale, with prices, price trend and who is
         selling.

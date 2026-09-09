@@ -7,6 +7,7 @@ from mcp.types import ToolAnnotations
 from comunio_mcp.comunio.models import Offers
 from comunio_mcp.comunio.offers import fetch_offers
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 
 def register(mcp: MCPServer) -> None:
@@ -14,6 +15,7 @@ def register(mcp: MCPServer) -> None:
         title="Open offers",
         annotations=ToolAnnotations(read_only_hint=True),
     )
+    @reporting_failures
     async def get_offers(ctx: Context[AppContext]) -> Offers:
         """Get every open transfer offer, and the manager's spending power.
 

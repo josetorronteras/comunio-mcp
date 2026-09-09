@@ -14,6 +14,7 @@ Two passes over the same table:
 """
 
 import asyncio
+import json
 
 import httpx2
 import pytest
@@ -90,6 +91,9 @@ class FakeApi:
 
     def __init__(self) -> None:
         self.requests: list[httpx2.Request] = []
+        #: Set to a payload or a whole response to make the squad endpoint answer with
+        #: something other than the fixture. Used to test what a failure tells the client.
+        self.squad: dict | list | httpx2.Response | None = None
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         path = request.url.path
@@ -134,7 +138,10 @@ class FakeApi:
         if "/offers/" in path:
             return httpx2.Response(200, json={"status": "OK"})
         if path.endswith("/squad"):
-            return httpx2.Response(200, json=SQUAD_RESPONSE)
+            if isinstance(self.squad, httpx2.Response):
+                return self.squad
+            payload = SQUAD_RESPONSE if self.squad is None else self.squad
+            return httpx2.Response(200, json=payload)
         if path.endswith("/standings"):
             return httpx2.Response(200, json=STANDINGS_RESPONSE)
         if path.endswith("/news"):
@@ -242,3 +249,61 @@ def test_no_tool_calls_out_without_credentials(name: str, arguments: dict) -> No
         _call(name, arguments, AppContext(comunio=None, session=None))
 
     assert handler.requests == []
+
+
+@pytest.mark.parametrize(("name", "arguments"), TOOL_CALLS, ids=[n for n, _ in TOOL_CALLS])
+def test_the_credentials_message_reaches_the_client(name: str, arguments: dict) -> None:
+    # Not just any failure: the sentence that says which variables to set has to arrive.
+    # Without `reporting_failures` this is a crash, and the client reads only
+    # "Error executing tool <name>".
+    with pytest.raises(ToolError) as failure:
+        _call(name, arguments, AppContext(comunio=None, session=None))
+
+    assert "COMUNIO_USERNAME" in str(failure.value)
+
+
+def test_a_guard_says_why_it_refused() -> None:
+    # `place_bid` refuses a player who is not on the market. The reason is what lets the
+    # model correct itself instead of retrying the same call.
+    handler = FakeApi()
+
+    with pytest.raises(ToolError) as failure:
+        _wired(handler, "place_bid", {"player_id": 999_999, "price": 100_000})
+
+    assert "not on the market" in str(failure.value)
+
+
+def test_a_changed_response_names_the_field_but_not_the_value() -> None:
+    # What the null status cost four days: the field name stayed on the server. The value
+    # must not follow it out — it is somebody's squad, and pydantic quotes it in `msg`.
+    handler = FakeApi()
+    handler.squad = {**SQUAD_RESPONSE, "items": _squad_with_a_broken_player()}
+
+    with pytest.raises(ToolError) as failure:
+        _wired(handler, "get_squad", {})
+
+    message = str(failure.value)
+    assert "quotedprice" in message
+    assert "not a price" not in message
+
+
+def test_an_http_failure_reports_the_status_and_nothing_else() -> None:
+    # A failed login answers with the credentials in the body, and every URL carries the
+    # league and user ids, so only the status code is safe to put in front of the model.
+    handler = FakeApi()
+    handler.squad = httpx2.Response(503, json={"error": "maintenance"})
+
+    with pytest.raises(ToolError) as failure:
+        _wired(handler, "get_squad", {})
+
+    message = str(failure.value)
+    assert "503" in message
+    assert USER_ID not in message
+    assert "maintenance" not in message
+
+
+def _squad_with_a_broken_player() -> list[dict]:
+    """The squad fixture with one player's price replaced by something that is not one."""
+    items = json.loads(json.dumps(SQUAD_RESPONSE["items"]))
+    items[0]["quotedprice"] = "not a price"
+    return items

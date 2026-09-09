@@ -7,6 +7,7 @@ from mcp.types import ToolAnnotations
 from comunio_mcp.comunio.actions import withdraw_bid as withdraw
 from comunio_mcp.comunio.models import WithdrawResult
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 
 def register(mcp: MCPServer) -> None:
@@ -19,6 +20,7 @@ def register(mcp: MCPServer) -> None:
             idempotent_hint=False,
         )
     )
+    @reporting_failures
     async def withdraw_bid(ctx: Context[AppContext], offer_id: int) -> WithdrawResult:
         """Withdraw a bid the manager has placed, so it is no longer in the running.
 

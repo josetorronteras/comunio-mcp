@@ -8,6 +8,7 @@ from comunio_mcp.comunio.lineup import TACTICS, Tactic
 from comunio_mcp.comunio.lineup import set_lineup as apply_lineup
 from comunio_mcp.comunio.models import LineupResult
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 FORMATIONS = ", ".join(sorted(TACTICS))
 
@@ -23,6 +24,7 @@ def register(mcp: MCPServer) -> None:
             idempotent_hint=True,
         )
     )
+    @reporting_failures
     async def set_lineup(
         ctx: Context[AppContext],
         tactic: Tactic,
