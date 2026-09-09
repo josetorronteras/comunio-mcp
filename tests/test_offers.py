@@ -90,3 +90,16 @@ def test_no_offers_does_not_crash():
 
 def test_a_status_code_is_read_out_in_words(offers):
     assert offers.offers[0].player.status_meaning == "available"
+
+
+def test_a_null_status_is_read_as_active(offers_response):
+    # The squad and market endpoints already write "available" as null. One null here
+    # would otherwise fail the whole response, offers on healthy players included.
+    nulled = json.loads(json.dumps(offers_response))
+    nulled["items"][0]["tradable"].update({"status": None, "statusInfo": None})
+
+    player = parse_offers(nulled, me=USER_ID).offers[0].player
+
+    assert player.status == "ACTIVE"
+    assert player.status_meaning == "available"
+    assert player.status_info is None

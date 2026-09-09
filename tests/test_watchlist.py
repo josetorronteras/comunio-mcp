@@ -214,3 +214,12 @@ def test_a_status_code_is_read_out_in_words():
 
     assert result.players[0].status_meaning == "available"
     assert result.players[1].status_meaning == "suspended after a straight red"
+
+
+def test_a_null_status_is_read_as_active():
+    # The squad and market endpoints already write "available" as null. Reading it here
+    # too costs nothing and keeps one null from failing the whole watchlist.
+    player = parse_watchlist({"tradables": [_entry(status=None)]}).players[0]
+
+    assert player.status == "ACTIVE"
+    assert player.status_meaning == "available"
