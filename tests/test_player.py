@@ -105,6 +105,20 @@ def test_an_unknown_status_passes_through_untranslated():
     assert meaning(None) is None
 
 
+def test_a_null_status_leaves_the_player_available(player_response):
+    # `game:player` still answers "ACTIVE" where the squad and market send null, so this
+    # is prevention rather than a fix. `available` is what a client reads to decide
+    # whether to field the player, and a null must not turn into "cannot be counted on".
+    nulled = json.loads(json.dumps(player_response))
+    nulled.update({"status": None, "statusInfo": None})
+
+    player = parse_player(nulled)
+
+    assert player.status == "ACTIVE"
+    assert player.status_meaning == "available"
+    assert player.available is True
+
+
 def test_only_a_null_status_is_normalised():
     # The squad and market endpoints write "available" as null. Nothing else is read as
     # ACTIVE: an unseen code is passed through rather than guessed at.

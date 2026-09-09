@@ -25,7 +25,7 @@ from comunio_mcp.comunio.models import (
     UpcomingMatch,
 )
 from comunio_mcp.comunio.session import Session
-from comunio_mcp.comunio.statuses import AVAILABLE, meaning
+from comunio_mcp.comunio.statuses import AVAILABLE, meaning, normalise
 
 PLAYER_LINK = "game:tradable"
 
@@ -52,7 +52,7 @@ async def fetch_player(session: Session, client: ComunioClient, player_id: int) 
 
 
 def parse_player(payload: Any) -> PlayerDetail:
-    status = payload.get("status", "")
+    status = normalise(payload.get("status"))
     general = payload.get("general") or {}
     cards = payload.get("cards") or {}
     averages = payload.get("average") or {}

@@ -228,6 +228,12 @@ in the parser, rather than widening the field to `str | None`, is what keeps
 `summary.unavailable` honest: comparing a null against `ACTIVE` would mark every available
 player as unavailable, which is a wrong answer rather than a missing one.
 
+Every parser that reads a status normalises it, not only the two endpoints where the null
+has been seen: `game:player`, `game:readOffers` and `game:watchlist` all type the field as
+a plain `str` too, and one null would fail their whole response the same way. The lineup
+reads its statuses from the squad, which arrive normalised already, and a settled
+transfer's status is `MissingStr`, so neither needs it.
+
 ### Other observations
 
 - `owner` is repeated identically on every player. The model hoists it to the top level.
@@ -614,8 +620,8 @@ codes to plain language, handles the `WAS_` prefix by rule, and returns `None` f
 anything unrecognised: it is a lookup, not a validator, and `status` stays a plain string
 everywhere.
 
-A fourteenth value there is not: `null` on the squad and market endpoints is `ACTIVE`
-written differently, and `statuses.normalise()` reads it as such.
+A fourteenth value there is not: `null` is `ACTIVE` written differently, and
+`statuses.normalise()` reads it as such wherever a status is parsed.
 
 ## Write endpoints
 
