@@ -222,7 +222,8 @@ squad on a league with nobody injured. `game:player` still answers `ACTIVE` for 
 players in the same minute, so the null is Comunio disagreeing with itself between
 endpoints, not a new state.
 
-`statuses.normalise()` reads it as `ACTIVE` before the value reaches the model. Normalising
+`statuses.normalise()` reads a null, and only a null, as `ACTIVE` before the value reaches
+the model; every other code is passed through as it arrives. Normalising
 in the parser, rather than widening the field to `str | None`, is what keeps
 `summary.unavailable` honest: comparing a null against `ACTIVE` would mark every available
 player as unavailable, which is a wrong answer rather than a missing one.
