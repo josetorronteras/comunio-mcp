@@ -72,6 +72,27 @@ def test_injuries_come_through(market):
     assert injured[0].status_info == "Lesión muscular"
 
 
+def test_a_null_status_and_a_null_watched_do_not_break_a_listing(market_response):
+    # The real payload sends `status`, `statusInfo` and `watched` present but null on
+    # every listing, and a `.get` default only fires when the key is missing. The three
+    # nulls together used to fail validation and took the whole market down with them.
+    nulled = json.loads(json.dumps(market_response))
+    nulled["items"][0].update({"watched": None, "remaining": None})
+    nulled["items"][0]["_embedded"]["player"].update({"status": None, "statusInfo": None})
+
+    market = parse_market(nulled, me=USER_ID)
+    listing = market.listings[0]
+
+    assert listing.status == "ACTIVE"
+    assert listing.status_meaning == "available"
+    assert listing.status_info is None
+    assert listing.watched is False
+    assert listing.remaining == 0
+    # And the normalised status keeps the count honest: an available listing is not
+    # counted as unavailable.
+    assert market.summary.unavailable == 1
+
+
 def test_the_summary_splits_by_seller_kind(market):
     summary = market.summary
 

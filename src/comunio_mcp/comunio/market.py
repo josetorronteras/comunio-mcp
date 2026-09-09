@@ -15,7 +15,7 @@ from typing import Any
 from comunio_mcp.comunio.client import ComunioClient
 from comunio_mcp.comunio.models import Market, MarketListing, MarketSummary
 from comunio_mcp.comunio.session import Session
-from comunio_mcp.comunio.statuses import meaning
+from comunio_mcp.comunio.statuses import meaning, normalise
 
 MARKET_LINK = "game:exchangemarket"
 
@@ -50,18 +50,24 @@ def _parse_listing(item: dict, *, me: str) -> MarketListing:
     player = embedded.get("player") or {}
     owner = embedded.get("owner") or {}
     owner_id = owner.get("id")
+    # A null status here means available, and reaches both fields normalised so that
+    # `summary.unavailable` does not count an available listing as unavailable.
+    status = normalise(player.get("status"))
 
     return MarketListing.model_validate(
         {
             **player,
-            "status_meaning": meaning(player.get("status")),
+            "status": status,
+            "status_meaning": meaning(status),
             "seller": owner.get("name", ""),
             "seller_id": owner_id,
             "from_computer": owner_id == COMPUTER_USER_ID,
             "is_mine": str(owner_id) == str(me),
             "listed_at": item.get("date"),
-            "remaining": item.get("remaining", 0),
-            "watched": item.get("watched", False),
+            # Both keys are present and null on every listing, and a `.get` default only
+            # fires when the key is missing.
+            "remaining": item.get("remaining") or 0,
+            "watched": item.get("watched") or False,
         }
     )
 
