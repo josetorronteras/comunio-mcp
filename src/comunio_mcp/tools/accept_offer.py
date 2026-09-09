@@ -7,6 +7,7 @@ from mcp.types import ToolAnnotations
 from comunio_mcp.comunio.actions import accept_offer as accept
 from comunio_mcp.comunio.models import AcceptResult
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 
 def register(mcp: MCPServer) -> None:
@@ -19,6 +20,7 @@ def register(mcp: MCPServer) -> None:
             idempotent_hint=False,
         )
     )
+    @reporting_failures
     async def accept_offer(ctx: Context[AppContext], offer_id: int) -> AcceptResult:
         """Accept an offer for one of the manager's players, selling them.
 

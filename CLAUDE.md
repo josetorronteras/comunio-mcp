@@ -94,6 +94,9 @@ Docker. Rationale in [`docs/architecture.md`](docs/architecture.md) (Decision 3)
   decoration.
 - Tools live one module per resource under `src/comunio_mcp/tools/`, each exposing `register(mcp)`,
   called from `server.py`.
+- **Every tool body carries `@reporting_failures`** (`errors.py`), under `@mcp.tool(...)`. Without
+  it a guard's reason, and anything else that is not a `ToolError`, reaches the client as
+  `Error executing tool <name>` and nothing more. It never forwards a rejected value or a URL.
 - A tool that needs Comunio takes `ctx: Context` from **`mcp.server.mcpserver`** (not
   `mcp.server.context`, which fails at import) and reaches the app through
   `ctx.request_context.lifespan_context`.

@@ -15,6 +15,7 @@ src/comunio_mcp/
 ├── metadata.py           server name and version, shared by server and tools
 ├── config.py             settings read from the environment
 ├── context.py            the lifespan object every tool reaches through ctx
+├── errors.py             turns an anticipated failure into one the client can read
 ├── check_auth.py         the auth-check entry point, not part of the server
 ├── server.py             the MCPServer instance and tool registration
 ├── comunio/              the Comunio side: client, auth, session, one module per endpoint
@@ -73,6 +74,24 @@ the message to reach the client.
 
 Container stderr is visible with `docker compose logs`, or directly when you run the
 image in a terminal.
+
+## Errors
+
+The SDK reports anything a tool raises that is not a `ToolError` as
+`Error executing tool <name>`, keeping the exception and its traceback in the server log.
+That default is right — a traceback carries whatever the process was holding — but it also
+hides the failures this server means to report: a guard refusing a bid, the message naming
+the credentials that are not set, and a response whose shape Comunio changed.
+
+Every tool body is wrapped in `@reporting_failures` (`errors.py`), which turns those into a
+`ToolError`, whose message the client does read. **Adding a tool means adding the
+decorator**, directly under `@mcp.tool(...)`.
+
+What it does *not* do is forward a value. A pydantic message quotes the input it rejected,
+which is somebody's squad, and an HTTP error stringifies the URL, which carries the league
+and user ids. Field names and a status code are enough to act on and carry neither. Keep
+it that way when extending it: `docs/comunio-api.md` explains why the login body in
+particular must never be echoed.
 
 ## Notes on the SDK
 

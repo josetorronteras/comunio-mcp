@@ -10,6 +10,7 @@ from pydantic import Field
 from comunio_mcp.comunio.models import News
 from comunio_mcp.comunio.news import fetch_news
 from comunio_mcp.context import AppContext, require_comunio, require_session
+from comunio_mcp.errors import reporting_failures
 
 #: One page of news. Larger limits cost one extra request per additional page.
 DEFAULT_LIMIT = 20
@@ -20,6 +21,7 @@ def register(mcp: MCPServer) -> None:
         title="League news",
         annotations=ToolAnnotations(read_only_hint=True),
     )
+    @reporting_failures
     async def get_news(
         ctx: Context[AppContext],
         limit: Annotated[int, Field(ge=1)] = DEFAULT_LIMIT,
