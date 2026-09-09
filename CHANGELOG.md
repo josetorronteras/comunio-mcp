@@ -25,6 +25,16 @@ when it does, the fix ships as a patch or a minor and the tools keep their shape
 
 ### Fixed
 
+- `get_squad` and `get_market` failing outright when Comunio sends `status: null` for an
+  available player, which it started doing on 7 September. A null now reads as `ACTIVE`,
+  and so do the null `watched` and `remaining` on a market listing.
+- The same null defused everywhere else it could land: `get_player`, `get_offers` and
+  `get_watchlist` normalise the status too, rather than waiting for Comunio to break them
+  in turn.
+- Failures now say what went wrong. A guard's reason, the message naming the credentials
+  that are not set, and the field of a response Comunio has changed all reach the client
+  instead of `Error executing tool <name>` — without ever forwarding a rejected value or
+  a URL.
 - The version in `pyproject.toml`, which stayed at `1.0.0` through the `v1.0.1` tag, so
   the server reported a version it was not.
 - Test collection on hosts where the bind-mounted `./tests` made pytest resolve
