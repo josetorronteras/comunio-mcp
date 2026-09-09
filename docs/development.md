@@ -86,10 +86,16 @@ The steps in order:
 The workflow needs no secrets. `packages: write` for GHCR and `id-token: write` for the
 registry's OIDC check are granted in the workflow itself; nothing is stored.
 
-That is also why the job runs in the `release` environment, whose deployment policy
-allows only `v*` **tags**. Those two permissions are enough to publish under this
+That is also why the job runs in the `release` environment, whose deployment policy has to
+allow only `v*` **tags**. Those two permissions are enough to publish under this
 repository's identity, so without the restriction anyone with write access could obtain
 them by pushing a modified workflow on any branch.
+
+**That environment is a repository setting, not something this file can create.** GitHub
+creates a missing environment on first use *with no protection rules at all*, so
+`environment: release` in the workflow is a fence only once Settings → Environments has a
+`release` environment whose deployment branch policy is `v*` and nothing else. Check it
+before the first tag, and after anyone edits it.
 
 The registry entry is owned by the `io.github.josetorronteras` namespace, proved by the
 `io.modelcontextprotocol.server.name` label in the Dockerfile. That label and the `name`

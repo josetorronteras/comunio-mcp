@@ -24,6 +24,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # The tags decide whether this release is the one `latest` should point at.
+          fetch-tags: true
 
       - name: Read the version from the tag
         id: version
@@ -52,15 +55,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # `latest` means the newest release, so a patch on an older line must not claim it.
+      - name: Work out which tags the image gets
+        id: tags
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          tags="$IMAGE:$VERSION"
+          newest=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          if [ "$newest" = "v$VERSION" ]; then
+            tags=$(printf '%s\n%s' "$tags" "$IMAGE:latest")
+          else
+            echo "v$VERSION is behind $newest, so latest stays where it is."
+          fi
+          { echo "value<<TAGS"; echo "$tags"; echo "TAGS"; } >> "$GITHUB_OUTPUT"
+
       - name: Build and push the image
         uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.version.outputs.value }}
-            ${{ env.IMAGE }}:latest
+          tags: ${{ steps.tags.outputs.value }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -74,9 +91,17 @@ jobs:
             '.version = $v | .packages[0].identifier = $image' \
             server.json > server.tmp && mv server.tmp server.json
 
+      # Pinned rather than `latest`: this binary runs in a job holding id-token:write, so
+      # what it does should not change under us between one release and the next.
       - name: Install mcp-publisher
+        env:
+          PUBLISHER_VERSION: v1.8.1
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          set -euo pipefail
+          os=$(uname -s | tr '[:upper:]' '[:lower:]')
+          arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+          curl -sSfL "https://github.com/modelcontextprotocol/registry/releases/download/$PUBLISHER_VERSION/mcp-publisher_${os}_${arch}.tar.gz" \
+            | tar xz mcp-publisher
 
       - name: Publish to the MCP Registry
         run: |

@@ -29,6 +29,14 @@ jobs:
           grep -q "io.modelcontextprotocol.server.name=\"$name\"" Dockerfile \
             || { echo "Dockerfile ownership label != server.json name ($name)" >&2; exit 1; }
 
+      # Drift is not the only way server.json goes wrong. A file that no longer matches
+      # the registry's schema is rejected at publish time, when the tag already exists.
+      - name: Check server.json against the registry schema
+        run: |
+          set -euo pipefail
+          curl -sSfL "$(jq -r '."$schema"' server.json)" -o /tmp/server.schema.json
+          pipx run check-jsonschema --schemafile /tmp/server.schema.json server.json
+
   test:
     runs-on: ubuntu-latest
     steps:
