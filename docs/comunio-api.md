@@ -214,6 +214,19 @@ Four values seen so far, and there is no reason to think that is all of them:
 Modelled as a plain string rather than a closed enum, so a fifth value does not break
 validation. `summary.unavailable` counts everything that is not `ACTIVE`.
 
+### `status: null` also means available
+
+Since September 2026 this endpoint and the market send `status: null` (with
+`statusInfo: null` alongside) for players they used to send `ACTIVE` for — most of the
+squad on a league with nobody injured. `game:player` still answers `ACTIVE` for those same
+players in the same minute, so the null is Comunio disagreeing with itself between
+endpoints, not a new state.
+
+`statuses.normalise()` reads it as `ACTIVE` before the value reaches the model. Normalising
+in the parser, rather than widening the field to `str | None`, is what keeps
+`summary.unavailable` honest: comparing a null against `ACTIVE` would mark every available
+player as unavailable, which is a wrong answer rather than a missing one.
+
 ### Other observations
 
 - `owner` is repeated identically on every player. The model hoists it to the top level.
@@ -328,6 +341,10 @@ since those are not buyable.
   interchangeable, and reusing the squad model here would silently drop both prices.
 - **`date` uses an offset with no colon** (`2026-08-10T04:15:06+0200`), unlike the
   `+02:00` seen elsewhere. Python parses both, but a hand-rolled parser would not.
+- **`watched` and `remaining` arrive present but null**, and so does `status` — see
+  [`status: null` also means available](#status-null-also-means-available), which applies
+  to this endpoint too. `item.get("watched", False)` returns `None` here, because a `.get`
+  default only fires when the key is *missing*. Read with `... or False`.
 
 `trend` is a small signed integer for price movement. It appears here and not in the squad
 endpoint.
@@ -595,6 +612,9 @@ fielded and would never have been guessed from a code alone. `comunio/statuses.p
 codes to plain language, handles the `WAS_` prefix by rule, and returns `None` for
 anything unrecognised: it is a lookup, not a validator, and `status` stays a plain string
 everywhere.
+
+A fourteenth value there is not: `null` on the squad and market endpoints is `ACTIVE`
+written differently, and `statuses.normalise()` reads it as such.
 
 ## Write endpoints
 

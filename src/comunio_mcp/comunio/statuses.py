@@ -33,6 +33,17 @@ MEANINGS = {
 AVAILABLE = "ACTIVE"
 
 
+def normalise(status: str | None) -> str:
+    """Read a missing status as available.
+
+    The squad and market endpoints send `status: null` for players they used to send
+    `ACTIVE` for, while `game:player` still answers `ACTIVE` for those same players. The
+    null is Comunio disagreeing with itself, not a fourteenth state, so it is read as the
+    value the other endpoint gives.
+    """
+    return status or AVAILABLE
+
+
 def meaning(status: str | None) -> str | None:
     """Plain-language reading of a status code, or None if it is unknown."""
     if not status:

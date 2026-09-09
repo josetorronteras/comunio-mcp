@@ -62,6 +62,24 @@ def test_injuries_come_through_with_their_reason(squad):
     assert injured[0].status_info == "Lesión muscular"
 
 
+def test_a_null_status_is_read_as_active(squad_response):
+    # Comunio started sending `status: null` instead of "ACTIVE" for available players,
+    # which used to fail validation and took the whole tool down with it. `game:player`
+    # still answers "ACTIVE" for the same player, so the null is not a new state.
+    nulled = json.loads(json.dumps(squad_response))
+    nulled["items"][0].update({"status": None, "statusInfo": None})
+
+    squad = parse_squad(nulled, me=USER_ID)
+    player = squad.players[0]
+
+    assert player.status == "ACTIVE"
+    assert player.status_meaning == "available"
+    assert player.status_info is None
+    # And the normalised status keeps the count honest: an available player is not
+    # counted as unavailable.
+    assert squad.summary.unavailable == 1
+
+
 def test_an_active_player_has_no_status_info(squad):
     by_name = {player.name: player for player in squad.players}
 
