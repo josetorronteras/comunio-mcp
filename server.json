@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.josetorronteras/comunio",
+  "title": "Comunio",
+  "description": "Read and operate a Comunio fantasy football team: squad, market, offers, lineup",
+  "version": "1.0.2",
+  "websiteUrl": "https://github.com/josetorronteras/comunio-mcp",
+  "repository": {
+    "url": "https://github.com/josetorronteras/comunio-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/josetorronteras/comunio-mcp:1.0.2",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "COMUNIO_USERNAME",
+          "description": "Email or username of the Comunio account the server acts for.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "COMUNIO_PASSWORD",
+          "description": "Password of that Comunio account.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "COMUNIO_TIMEZONE",
+          "description": "IANA timezone used for the x-timezone header and the login offset. Defaults to Europe/Madrid.",
+          "isRequired": false,
+          "default": "Europe/Madrid"
+        },
+        {
+          "name": "COMUNIO_USER_AGENT",
+          "description": "Overrides the browser user agent sent to Comunio. Only needed if the API starts refusing the default.",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

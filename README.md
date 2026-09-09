@@ -1,5 +1,10 @@
 # Comunio MCP
 
+[![CI](https://github.com/josetorronteras/comunio-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/josetorronteras/comunio-mcp/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/josetorronteras/comunio-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/josetorronteras/comunio-mcp)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.josetorronteras%2Fcomunio-blue)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.josetorronteras/comunio)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 An **MCP** (Model Context Protocol) server for [Comunio](https://www.comunio.es/es), the online
 football fantasy manager.
 
@@ -34,30 +39,49 @@ and it reports what Comunio actually answered rather than assuming it worked.
 
 ## Requirements
 
-- [Docker](https://docs.docker.com/get-docker/) with `docker compose`.
+- [Docker](https://docs.docker.com/get-docker/).
+- A Comunio account. There is no API key and no sign-up — the server logs in as you.
 
-Everything runs in containers — nothing else needs to be installed on the host.
+Nothing else needs to be installed on the host.
 
 ## Quick start
 
+The image is published, so there is nothing to clone and nothing to build. Put your
+credentials in a file only you can read, rather than in a command your shell will
+remember:
+
 ```bash
-docker compose build
-claude mcp add comunio -- docker run -i --rm comunio-mcp
+install -m 600 /dev/null ~/.comunio.env
+$EDITOR ~/.comunio.env      # COMUNIO_USERNAME=you
+                            # COMUNIO_PASSWORD=...
+
+claude mcp add comunio -- docker run -i --rm \
+  --env-file "$HOME/.comunio.env" \
+  ghcr.io/josetorronteras/comunio-mcp
 ```
 
-Then ask your assistant how your team is doing. Full instructions, including Claude Desktop, are in
-[docs/setup.md](docs/setup.md).
+Then ask your assistant how your team is doing — `get_account` is the quickest proof that
+the credentials work.
+
+For Claude Desktop, for the `uvx` route that skips Docker entirely, and for what each
+variable does, see [docs/setup.md](docs/setup.md).
 
 ## Documentation
 
-- [Setup](docs/setup.md) — building the image and connecting it to an MCP client
+- [Setup](docs/setup.md) — running the image and connecting it to an MCP client
 - [Tools](docs/tools.md) — what each tool returns and what it touches
 - [Development](docs/development.md) — layout, dev commands, SDK gotchas
 - [Architecture](docs/architecture.md) — design decisions and the reasoning behind them
 - [Comunio API](docs/comunio-api.md) — authentication, the link index and what is still unmapped
 - [MCP protocol notes](docs/mcp-protocol.md) — the parts of MCP `2026-07-28` that shape this project
+- [Changelog](CHANGELOG.md) — what changed in each release
 
-Contributor conventions are in [CLAUDE.md](CLAUDE.md).
+## Contributing
+
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the setup,
+what belongs in the server and what does not, and the rules that are not negotiable — no
+credentials, no tokens and no real account data in a commit. Vulnerabilities go through
+[SECURITY.md](SECURITY.md) rather than a public issue.
 
 ## Versioning
 

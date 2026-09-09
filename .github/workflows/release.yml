@@ -1,0 +1,109 @@
+name: Release
+
+# Pushing a v* tag publishes the image and the registry entry. Nothing here runs on a
+# pull request: both steps are one-way.
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # The job holds packages:write and id-token:write, which is enough to publish under
+    # this repository's identity. The environment restricts it to v* tags, so a writer
+    # cannot get those permissions by pushing a workflow change on any other ref.
+    environment: release
+    permissions:
+      contents: read
+      packages: write   # push the image to GHCR
+      id-token: write   # OIDC, so the MCP Registry can verify the publisher
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # The tags decide whether this release is the one `latest` should point at.
+          fetch-tags: true
+
+      - name: Read the version from the tag
+        id: version
+        run: echo "value=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse a tag that does not match pyproject.toml
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          declared=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          if [ "$declared" != "$VERSION" ]; then
+            echo "Tag v$VERSION does not match pyproject.toml version $declared." >&2
+            exit 1
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `latest` means the newest release, so a patch on an older line must not claim it.
+      - name: Work out which tags the image gets
+        id: tags
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          tags="$IMAGE:$VERSION"
+          newest=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          if [ "$newest" = "v$VERSION" ]; then
+            tags=$(printf '%s\n%s' "$tags" "$IMAGE:latest")
+          else
+            echo "v$VERSION is behind $newest, so latest stays where it is."
+          fi
+          { echo "value<<TAGS"; echo "$tags"; echo "TAGS"; } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push the image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The registry resolves the image by the tag written in server.json, so it has to
+      # be the one just pushed.
+      - name: Pin the released version in server.json
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          jq --arg v "$VERSION" --arg image "$IMAGE:$VERSION" \
+            '.version = $v | .packages[0].identifier = $image' \
+            server.json > server.tmp && mv server.tmp server.json
+
+      # Pinned rather than `latest`: this binary runs in a job holding id-token:write, so
+      # what it does should not change under us between one release and the next.
+      - name: Install mcp-publisher
+        env:
+          PUBLISHER_VERSION: v1.8.1
+        run: |
+          set -euo pipefail
+          os=$(uname -s | tr '[:upper:]' '[:lower:]')
+          arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+          curl -sSfL "https://github.com/modelcontextprotocol/registry/releases/download/$PUBLISHER_VERSION/mcp-publisher_${os}_${arch}.tar.gz" \
+            | tar xz mcp-publisher
+
+      - name: Publish to the MCP Registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
