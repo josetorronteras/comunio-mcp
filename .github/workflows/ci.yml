@@ -61,6 +61,7 @@ jobs:
             -q --cov=comunio_mcp --cov-report=xml:/out/coverage.xml --junitxml=/out/junit.xml
 
       - name: Upload coverage to Codecov
+        if: github.actor != 'dependabot[bot]'
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -70,7 +71,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.actor != 'dependabot[bot]' }}
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
